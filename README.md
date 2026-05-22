@@ -1,4 +1,4 @@
-# Agent Framework
+# Thund3rBot Agent Framework
 
 An embeddable Python framework for building scoped agents and agent workflows with LangChain and LangGraph-compatible models. The framework is designed to be used inside your own applications the way you would embed an ML model: configure it, register domain tools and skills, create an agent, and call `run`.
 
