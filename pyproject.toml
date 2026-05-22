@@ -22,7 +22,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries",
 ]
 
 dependencies = [
