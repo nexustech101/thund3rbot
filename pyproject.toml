@@ -7,6 +7,24 @@ name = "thund3rbot"
 version = "0.1.0"
 description = "A minimal, extensible multi-agent AI framework"
 requires-python = ">=3.11"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { text = "MIT" }
+
+authors = [
+    { name = "Charles DeFreese" }
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Artificial Intelligence",
+]
+
 dependencies = [
     # LangChain ecosystem
     "langchain>=0.3.0",
@@ -42,6 +60,10 @@ dev = [
     "mypy>=1.13.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/nexustech101/thund3rbot"
+Repository = "https://github.com/nexustech101/thund3rbot"
+
 [tool.hatch.build.targets.wheel]
 packages = [
     "core"
@@ -57,6 +79,11 @@ select = ["E", "F", "I", "UP"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["core"]
+include = ["thund3rbot*"]
+exclude = ["*.tests*", "*.tests.*"]
 
 [tool.mypy]
 python_version = "3.11"
