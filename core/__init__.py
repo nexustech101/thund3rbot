@@ -3,6 +3,12 @@ from __future__ import annotations
 
 import warnings
 
+warnings.warn(
+    "Importing from 'core' is deprecated; use 'thund3rbot' for the public API.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 warnings.filterwarnings(
     "ignore",
     message="The default value of `allowed_objects` will change",
@@ -20,11 +26,14 @@ except ImportError:
     pass
 
 from core.types import (
+    AgentInput,
     AgentScope,
     AgentSpec,
     AgentStatus,
     AgentFinished,
     AgentStarted,
+    Artifact,
+    ContentPart,
     FrameworkConfig,
     FrameworkConfigError,
     FrameworkEvent,
@@ -37,8 +46,11 @@ from core.types import (
     Skill,
     SkillConfigError,
     StepEvent,
+    ToolApproval,
     ToolCalled,
+    ToolCallContext,
     ToolNotFoundError,
+    ToolRisk,
     ToolResult,
     ToolSpec,
     WorkflowStepFinished,
@@ -48,11 +60,14 @@ from core.types import (
 
 __all__ = [
     "AgentFramework",
+    "AgentInput",
     "AgentScope",
     "AgentSpec",
     "AgentStatus",
     "AgentFinished",
     "AgentStarted",
+    "Artifact",
+    "ContentPart",
     "FrameworkConfig",
     "FrameworkConfigError",
     "FrameworkEvent",
@@ -65,8 +80,11 @@ __all__ = [
     "Skill",
     "SkillConfigError",
     "StepEvent",
+    "ToolApproval",
     "ToolCalled",
+    "ToolCallContext",
     "ToolNotFoundError",
+    "ToolRisk",
     "ToolResult",
     "ToolSpec",
     "WorkflowStepFinished",

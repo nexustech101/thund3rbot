@@ -77,6 +77,33 @@ ModelFactory = Callable[[ModelConfig], Any]
 WorkflowHandler = Callable[[dict[str, Any]], Any] | Callable[[dict[str, Any], Any], Any]
 ToolRef = str | Callable[..., Any] | Any
 StopReason = Literal["completed", "max_steps", "max_tool_calls", "timeout", "error"]
+ToolRisk = Literal["low", "medium", "high"]
+ContentType = Literal["text", "image", "audio", "video", "html", "markdown", "json", "file", "screenshot"]
+
+
+class ContentPart(BaseModel):
+    """Typed input content for multimodal-capable agents."""
+
+    type: ContentType = "text"
+    text: str | None = None
+    data: Any = None
+    uri: str | None = None
+    mime_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class Artifact(BaseModel):
+    """Typed output or intermediate asset produced by an agent or tool."""
+
+    artifact_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: ContentType
+    data: Any = None
+    uri: str | None = None
+    mime_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+AgentInput = str | list[ContentPart]
 
 
 class FrameworkConfig(BaseModel):
@@ -119,6 +146,9 @@ class ToolSpec(BaseModel):
     source: Callable[..., Any] | None = None
     public_name: str | None = None
     namespace: str | None = None
+    risk: ToolRisk = "low"
+    requires_approval: bool = False
+    tags: set[str] = Field(default_factory=set)
 
 
 class PromptSpec(BaseModel):
@@ -138,6 +168,7 @@ class AgentSpec(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     agent_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str | None = None
     name: str
     scope: AgentScope = AgentScope.TASK
     instructions: str = ""
@@ -163,6 +194,8 @@ class RunResult(BaseModel):
     """Structured result returned by agents and workflows."""
 
     run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    agent_id: str = ""
+    session_id: str = ""
     name: str = ""
     scope: AgentScope | None = None
     status: AgentStatus = AgentStatus.PENDING
@@ -187,6 +220,30 @@ class StepEvent(BaseModel):
     summary: str = ""
 
 
+class ToolCallContext(BaseModel):
+    """Payload passed to tool lifecycle hooks."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    run_id: str
+    agent_id: str
+    session_id: str
+    agent_name: str
+    tool: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    risk: ToolRisk = "low"
+    requires_approval: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolApproval(BaseModel):
+    """Decision returned by ``before_tool_call`` hooks."""
+
+    approved: bool = True
+    arguments: dict[str, Any] | None = None
+    reason: str | None = None
+
+
 class RunOptions(BaseModel):
     """Per-run controls separate from static ``AgentSpec`` configuration."""
 
@@ -196,6 +253,9 @@ class RunOptions(BaseModel):
     max_tool_calls: int | None = None
     timeout_seconds: float | None = None
     on_step: Callable[[StepEvent], Any] | None = None
+    before_tool_call: Callable[[ToolCallContext], Any] | None = None
+    after_tool_call: Callable[[ToolCallContext, Any], Any] | None = None
+    on_tool_error: Callable[[ToolCallContext, Exception], Any] | None = None
 
 
 class FrameworkEvent(BaseModel):
@@ -208,7 +268,7 @@ class FrameworkEvent(BaseModel):
 class AgentStarted(FrameworkEvent):
     event_type: str = "agent_started"
     scope: AgentScope
-    input: str
+    input: Any
 
 
 class ToolCalled(FrameworkEvent):

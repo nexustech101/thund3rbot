@@ -43,6 +43,36 @@ def test_import_core_does_not_import_host_frameworks():
     assert completed.returncode == 0
 
 
+def test_public_imports_from_thund3rbot_and_core_compatibility():
+    from core import AgentSpec as LegacyAgentSpec
+    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, tool
+
+    framework = AgentFramework(FrameworkConfig(enable_default_tools=False))
+
+    @tool(scopes=[AgentScope.TASK])
+    def ping() -> str:
+        """Ping."""
+
+        return "pong"
+
+    assert AgentSpec is not None
+    assert LegacyAgentSpec is AgentSpec
+    assert framework.tools.register(ping) is ping
+
+
+def test_import_thund3rbot_does_not_import_optional_frameworks_or_providers():
+    script = (
+        "import thund3rbot, sys; "
+        "blocked=[n for n in ("
+        "'fastapi','fastmcp','mcp','click','rich','langchain_openai',"
+        "'langchain_ollama','langchain_anthropic','langchain_google_genai'"
+        ") if n in sys.modules]; "
+        "raise SystemExit(1 if blocked else 0)"
+    )
+    completed = subprocess.run([sys.executable, "-c", script], check=False)
+    assert completed.returncode == 0
+
+
 def test_config_accepts_model_and_model_name_alias():
     from core import ModelConfig
 
@@ -52,17 +82,23 @@ def test_config_accepts_model_and_model_name_alias():
 
 
 def test_tool_registration_and_scope_visibility():
-    from core import AgentFramework, AgentScope, FrameworkConfig
+    from core import AgentFramework, AgentScope, FrameworkConfig, tool
 
     framework = AgentFramework(FrameworkConfig(enable_default_tools=False))
 
-    @framework.tools.register(scopes=[AgentScope.TASK])
+    @tool(scopes=[AgentScope.TASK], risk="high", requires_approval=True, tags=["external"])
     def shout(text: str) -> str:
         """Uppercase text."""
 
         return text.upper()
 
+    framework.tools.register(shout)
+
     assert "shout" in framework.tools.names()
+    spec = framework.tools.get_spec("shout")
+    assert spec.risk == "high"
+    assert spec.requires_approval is True
+    assert spec.tags == {"external"}
     assert [tool.name for tool in framework.tools.get(scope=AgentScope.TASK)] == ["shout"]
     assert framework.tools.get(scope=AgentScope.ORCHESTRATOR) == []
 
@@ -116,6 +152,99 @@ async def test_task_agent_runs_with_fake_model():
 
     assert result.status == "completed"
     assert result.output == "hello"
+
+
+@pytest.mark.asyncio
+async def test_repeated_runs_have_unique_run_ids_and_stable_session_memory():
+    from core import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+
+    class CapturingModel:
+        def __init__(self):
+            self.calls = []
+
+        async def ainvoke(self, messages):
+            self.calls.append(messages)
+            return AIMessage(content=f"ok-{len(self.calls)}")
+
+    model = CapturingModel()
+    framework = AgentFramework(
+        FrameworkConfig(
+            default_model=ModelConfig(provider="ollama", model="fake"),
+            model_factory=lambda _: model,
+        )
+    )
+    agent = framework.agent(
+        AgentSpec(name="assistant", scope=AgentScope.TASK, session_id="thread-1")
+    )
+
+    first = await agent.run("first")
+    second = await agent.run("second")
+
+    assert first.run_id != second.run_id
+    assert first.agent_id == second.agent_id == agent.agent_id
+    assert first.session_id == second.session_id == "thread-1"
+    assert first.run_id in framework.runs
+    assert second.run_id in framework.runs
+    assert any(getattr(message, "content", "") == "first" for message in model.calls[1])
+    assert any(getattr(message, "content", "") == "ok-1" for message in model.calls[1])
+
+
+@pytest.mark.asyncio
+async def test_context_is_injected_into_model_messages():
+    from core import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+
+    captured = []
+
+    class CapturingModel:
+        async def ainvoke(self, messages):
+            captured.extend(messages)
+            return AIMessage(content="ok")
+
+    framework = AgentFramework(
+        FrameworkConfig(
+            default_model=ModelConfig(provider="ollama", model="fake"),
+            model_factory=lambda _: CapturingModel(),
+        )
+    )
+
+    await framework.run_agent(
+        AgentSpec(name="assistant", scope=AgentScope.TASK),
+        "Use context",
+        context={"account_id": "acct_123", "mode": "dry_run"},
+    )
+
+    contents = [getattr(message, "content", "") for message in captured]
+    assert any("Runtime context:" in value and "acct_123" in value for value in contents)
+
+
+@pytest.mark.asyncio
+async def test_timeout_is_not_successful_completion():
+    import asyncio
+
+    from core import AgentScope, AgentSpec, RunOptions
+
+    class SlowModel:
+        async def ainvoke(self, messages):
+            await asyncio.sleep(0.05)
+            return AIMessage(content="late")
+
+    from core import AgentFramework, FrameworkConfig, ModelConfig
+
+    framework = AgentFramework(
+        FrameworkConfig(
+            default_model=ModelConfig(provider="ollama", model="fake"),
+            model_factory=lambda _: SlowModel(),
+        )
+    )
+
+    result = await framework.run_agent(
+        AgentSpec(name="assistant", scope=AgentScope.TASK),
+        "Wait",
+        options=RunOptions(timeout_seconds=0.001),
+    )
+
+    assert result.stop_reason == "timeout"
+    assert result.status == "cancelled"
 
 
 @pytest.mark.asyncio
@@ -217,6 +346,70 @@ async def test_run_options_step_callback_and_tool_budget():
 
 
 @pytest.mark.asyncio
+async def test_tool_approval_hook_can_modify_arguments_and_observe_output():
+    from core import AgentScope, AgentSpec, RunOptions, tool
+
+    framework = framework_with_fake(
+        '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
+        "done",
+    )
+    seen = []
+
+    @framework.tools.register
+    @tool(scopes=[AgentScope.TASK], risk="medium", requires_approval=True)
+    def double(value: int) -> int:
+        """Double a value."""
+
+        return value * 2
+
+    def before(context):
+        seen.append(("before", context.risk, context.requires_approval, context.arguments))
+        return {"arguments": {"value": 5}}
+
+    def after(context, output):
+        seen.append(("after", context.arguments, output))
+
+    result = await framework.run_agent(
+        AgentSpec(name="calculator", scope=AgentScope.TASK, tools=["double"]),
+        "Double 4",
+        options=RunOptions(before_tool_call=before, after_tool_call=after),
+    )
+
+    assert result.output == "done"
+    assert seen[0] == ("before", "medium", True, {"value": 4})
+    assert seen[1] == ("after", {"value": 5}, 10)
+
+
+@pytest.mark.asyncio
+async def test_tool_approval_hook_can_reject_tool_call():
+    from core import AgentScope, AgentSpec, RunOptions, tool
+
+    framework = framework_with_fake(
+        '<tool_call>{"name": "send_email", "arguments": {"to": "a@example.com"}}</tool_call>',
+        "not sent",
+    )
+    called = False
+
+    @framework.tools.register
+    @tool(scopes=[AgentScope.TASK], risk="high", requires_approval=True)
+    def send_email(to: str) -> str:
+        """Send email."""
+
+        nonlocal called
+        called = True
+        return to
+
+    result = await framework.run_agent(
+        AgentSpec(name="mailer", scope=AgentScope.TASK, tools=["send_email"]),
+        "Send email",
+        options=RunOptions(before_tool_call=lambda context: False),
+    )
+
+    assert result.output == "not sent"
+    assert called is False
+
+
+@pytest.mark.asyncio
 async def test_run_options_max_tool_calls_stops_with_partial_result():
     from core import AgentScope, AgentSpec, RunOptions
 
@@ -256,6 +449,33 @@ async def test_sub_agent_and_orchestrator_spawn_children_on_same_runtime():
     assert orch_result.output == "sub done"
     assert sub_result.run_id in framework.runs
     assert orch_result.run_id in framework.runs
+
+
+@pytest.mark.asyncio
+async def test_sub_agent_llm_can_use_spawn_tool():
+    from core import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+
+    parent_model = FakeChatModel(
+        '<tool_call>{"name": "create_task_agent", "arguments": {"name": "child", "task": "Do it"}}</tool_call>',
+        "parent done",
+    )
+    child_model = FakeChatModel("child done")
+    models = [parent_model, child_model]
+    framework = AgentFramework(
+        FrameworkConfig(
+            default_model=ModelConfig(provider="ollama", model="fake"),
+            model_factory=lambda _: models.pop(0),
+        )
+    )
+
+    result = await framework.run_agent(
+        AgentSpec(name="sub", scope=AgentScope.SUB_AGENT),
+        "Delegate this",
+    )
+
+    assert result.output == "parent done"
+    assert result.tool_calls == 1
+    assert len(framework.runs) == 2
 
 
 @pytest.mark.asyncio
@@ -331,6 +551,58 @@ def test_namespaced_tool_resolution_uses_public_tool_name():
 
     assert framework.tools.get_spec("crm.get_contact").description == "Fetch a CRM contact by email."
     assert resolved[0].name == "get_contact"
+
+
+@pytest.mark.asyncio
+async def test_multimodal_content_and_artifact_tool_flow():
+    from core import AgentFramework, AgentScope, AgentSpec, Artifact, ContentPart, FrameworkConfig, ModelConfig
+
+    captured_messages = []
+
+    class CaptureModel:
+        def __init__(self):
+            self.responses = [
+                '<tool_call>{"name": "extract_page", "arguments": {"url": "https://example.com"}}</tool_call>',
+                "done",
+            ]
+
+        def bind_tools(self, tools):
+            return self
+
+        async def ainvoke(self, messages):
+            captured_messages.append(messages)
+            return AIMessage(content=self.responses.pop(0))
+
+    artifacts = []
+
+    framework = AgentFramework(
+        FrameworkConfig(
+            default_model=ModelConfig(provider="ollama", model="fake"),
+            model_factory=lambda _: CaptureModel(),
+        )
+    )
+
+    @framework.tools.register(scopes=[AgentScope.TASK])
+    def extract_page(url: str):
+        """Extract a page."""
+
+        artifact = Artifact(type="markdown", data="# Example", uri=url)
+        artifacts.append(artifact)
+        return artifact
+
+    result = await framework.run_agent(
+        AgentSpec(name="extractor", scope=AgentScope.TASK, tools=["extract_page"]),
+        [
+            ContentPart(type="text", text="Extract this page."),
+            ContentPart(type="screenshot", uri="file:///tmp/page.png", mime_type="image/png"),
+        ],
+    )
+
+    human_content = captured_messages[0][1].content
+    assert human_content[0]["type"] == "text"
+    assert human_content[1]["type"] == "screenshot"
+    assert artifacts[0].model_dump()["type"] == "markdown"
+    assert result.output == "done"
 
 
 def test_fastapi_adapter_can_mount_router_without_core_importing_fastapi():

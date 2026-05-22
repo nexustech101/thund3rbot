@@ -8,7 +8,7 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool
 
-from core.types import AgentScope, ToolNotFoundError, ToolRef, ToolSpec
+from core.types import AgentScope, ToolNotFoundError, ToolRef, ToolRisk, ToolSpec
 
 
 @dataclass(frozen=True)
@@ -16,6 +16,9 @@ class ToolMetadata:
     scopes: tuple[AgentScope, ...] | None = None
     name: str | None = None
     description: str | None = None
+    risk: ToolRisk = "low"
+    requires_approval: bool = False
+    tags: tuple[str, ...] = ()
 
 
 def tool(
@@ -24,13 +27,21 @@ def tool(
     scopes: Iterable[AgentScope | str] | None = None,
     name: str | None = None,
     description: str | None = None,
+    risk: ToolRisk = "low",
+    requires_approval: bool = False,
+    tags: Iterable[str] | None = None,
 ):
     """Decorate a Python function as an agent tool without registering it globally."""
 
     normalised = None if scopes is None else tuple(_normalise_scopes(scopes))
+    tag_values = tuple(tags or ())
 
     def _decorate(fn: Callable[..., Any]) -> Callable[..., Any]:
-        setattr(fn, "__agent_tool_metadata__", ToolMetadata(normalised, name, description))
+        setattr(
+            fn,
+            "__agent_tool_metadata__",
+            ToolMetadata(normalised, name, description, risk, requires_approval, tag_values),
+        )
         return fn
 
     if func is None:
@@ -58,6 +69,9 @@ class ToolRegistry:
         name: str | None = None,
         description: str | None = None,
         scopes: Iterable[AgentScope | str] | None = None,
+        risk: ToolRisk | None = None,
+        requires_approval: bool | None = None,
+        tags: Iterable[str] | None = None,
     ):
         """Register a tool directly or use as a decorator."""
 
@@ -77,6 +91,13 @@ class ToolRegistry:
                 scopes=effective_scopes,
                 tool=lc_tool,
                 source=None if isinstance(obj, BaseTool) else obj,
+                risk=risk or (metadata.risk if metadata else "low"),
+                requires_approval=(
+                    requires_approval
+                    if requires_approval is not None
+                    else (metadata.requires_approval if metadata else False)
+                ),
+                tags=set(tags or (metadata.tags if metadata else ())),
             )
             self._tools[spec.name] = spec
             return obj
@@ -94,6 +115,9 @@ class ToolRegistry:
         public_name: str | None = None,
         description: str | None = None,
         namespace: str | None = None,
+        risk: ToolRisk = "low",
+        requires_approval: bool = False,
+        tags: Iterable[str] | None = None,
     ) -> BaseTool:
         spec_name = name or lc_tool.name
         exposed_tool = self._clone_tool(lc_tool, public_name or lc_tool.name, description)
@@ -105,6 +129,9 @@ class ToolRegistry:
             tool=exposed_tool,
             source=None,
             namespace=namespace,
+            risk=risk,
+            requires_approval=requires_approval,
+            tags=set(tags or ()),
         )
         return exposed_tool
 
@@ -206,6 +233,9 @@ class ToolRegistry:
             scopes=scopes,
             tool=lc_tool,
             source=None if isinstance(ref, BaseTool) else ref,
+            risk=metadata.risk if metadata else "low",
+            requires_approval=metadata.requires_approval if metadata else False,
+            tags=set(metadata.tags if metadata else ()),
         )
         if not self._allowed_for_scope(spec, scope):
             raise ToolNotFoundError(f"Tool {spec.name!r} is not available for scope {scope.value if scope else scope}.")

@@ -47,3 +47,4 @@ hand/
 .graph-out/
 ml/
 todo.py
+*copy.md

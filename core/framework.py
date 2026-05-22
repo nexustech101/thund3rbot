@@ -12,6 +12,7 @@ from core.prompts import PromptRegistry
 from core.skills import SkillRegistry
 from core.tooling import ToolRegistry
 from core.types import (
+    AgentInput,
     AgentScope,
     AgentSpec,
     FrameworkConfig,
@@ -60,7 +61,7 @@ class AgentFramework:
     async def run_agent(
         self,
         spec: AgentSpec,
-        input: str,
+        input: AgentInput,
         context: dict[str, Any] | None = None,
         *,
         options: RunOptions | None = None,
@@ -71,7 +72,7 @@ class AgentFramework:
         self,
         name: str,
         spec: AgentSpec,
-        input: str,
+        input: AgentInput,
         *,
         context: dict[str, Any] | None = None,
         options: RunOptions | None = None,
