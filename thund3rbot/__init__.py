@@ -5,7 +5,7 @@ import warnings
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
-    from core.types import (
+    from thund3rbot.types import (
         AgentInput,
         AgentScope,
         AgentSpec,
@@ -79,15 +79,15 @@ def __getattr__(name: str):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         if name == "AgentFramework":
-            from core.framework import AgentFramework
+            from thund3rbot.framework import AgentFramework
 
             return AgentFramework
         if name == "tool":
-            from core.tooling import tool
+            from thund3rbot.tooling import tool
 
             return tool
         if name == "prompt":
-            from core.prompts import prompt
+            from thund3rbot.prompts import prompt
 
             return prompt
     raise AttributeError(f"module 'thund3rbot' has no attribute {name!r}")

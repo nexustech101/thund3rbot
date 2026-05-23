@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from core.types import PromptSpec
+from thund3rbot.types import PromptSpec
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,6 @@ class PromptRegistry:
 
         if self._framework is None:
             raise RuntimeError("MCP loading requires a PromptRegistry attached to an AgentFramework.")
-        from core.integrations.fastmcp import load_mcp_prompts
+        from thund3rbot.integrations.fastmcp import load_mcp_prompts
 
         return await load_mcp_prompts(self._framework, url, namespace=namespace, names=names)
-

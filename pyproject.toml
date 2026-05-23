@@ -96,7 +96,6 @@ Repository = "https://github.com/nexustech101/thund3rbot"
 
 [tool.hatch.build.targets.wheel]
 packages = [
-    "core",
     "thund3rbot",
 ]
 

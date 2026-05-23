@@ -8,7 +8,7 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool
 
-from core.types import AgentScope, ToolNotFoundError, ToolRef, ToolRisk, ToolSpec
+from thund3rbot.types import AgentScope, ToolNotFoundError, ToolRef, ToolRisk, ToolSpec
 
 
 @dataclass(frozen=True)
@@ -189,7 +189,7 @@ class ToolRegistry:
 
         if self._framework is None:
             raise RuntimeError("MCP loading requires a ToolRegistry attached to an AgentFramework.")
-        from core.integrations.fastmcp import load_mcp_tools
+        from thund3rbot.integrations.fastmcp import load_mcp_tools
 
         return await load_mcp_tools(
             self._framework,

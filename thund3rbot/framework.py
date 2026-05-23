@@ -5,13 +5,13 @@ import inspect
 import time
 from typing import Any
 
-from core.agents import OrchestratorAgent, SubAgent, TaskAgent
-from core.memory import BaseMemoryStore, InMemoryStore
-from core.models import create_llm
-from core.prompts import PromptRegistry
-from core.skills import SkillRegistry
-from core.tooling import ToolRegistry
-from core.types import (
+from thund3rbot.agents import OrchestratorAgent, SubAgent, TaskAgent
+from thund3rbot.memory import BaseMemoryStore, InMemoryStore
+from thund3rbot.models import create_llm
+from thund3rbot.prompts import PromptRegistry
+from thund3rbot.skills import SkillRegistry
+from thund3rbot.tooling import ToolRegistry
+from thund3rbot.types import (
     AgentInput,
     AgentScope,
     AgentSpec,
@@ -23,7 +23,7 @@ from core.types import (
     WorkflowStepFinished,
     WorkflowStepStarted,
 )
-from core.workflows import WorkflowRegistry
+from thund3rbot.workflows import WorkflowRegistry
 
 
 class AgentFramework:

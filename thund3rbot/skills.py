@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from core.types import AgentScope, Skill, SkillConfigError, ToolNotFoundError
+from thund3rbot.types import AgentScope, Skill, SkillConfigError, ToolNotFoundError
 
 
 class SkillRegistry:

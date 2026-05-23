@@ -5,7 +5,7 @@ import inspect
 from datetime import UTC, datetime
 from typing import Any
 
-from core.types import AgentStatus, RunResult, WorkflowHandler, WorkflowSpec
+from thund3rbot.types import AgentStatus, RunResult, WorkflowHandler, WorkflowSpec
 
 
 class WorkflowRegistry:

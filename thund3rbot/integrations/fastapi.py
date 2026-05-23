@@ -5,8 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from core import AgentFramework
-from core.types import AgentScope, AgentSpec, ModelConfig
+from thund3rbot import AgentFramework, AgentScope, AgentSpec, ModelConfig
 
 
 class RunAgentRequest(BaseModel):
@@ -56,4 +55,3 @@ def create_agent_router(framework: AgentFramework, *, prefix: str = "/agents"):
         return [result.model_dump(mode="json") for result in framework.runs.values()]
 
     return router
-

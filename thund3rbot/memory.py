@@ -109,7 +109,7 @@ def set_memory_store(store: BaseMemoryStore) -> None:
 
     Call this *before* creating any agents, e.g. in your app startup handler:
 
-        from core.memory import set_memory_store
+        from thund3rbot.memory import set_memory_store
         from my_stores import RedisMemoryStore
         set_memory_store(RedisMemoryStore(url="redis://localhost"))
     """

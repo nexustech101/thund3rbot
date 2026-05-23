@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from core.types import AgentResult, AgentScope, AgentStatus, WorkflowResult
+from thund3rbot.types import AgentResult, AgentScope, AgentStatus, WorkflowResult
 
 logger = logging.getLogger(__name__)
 

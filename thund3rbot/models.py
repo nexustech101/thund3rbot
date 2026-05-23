@@ -7,7 +7,7 @@ from typing import Optional
 
 from langchain_core.language_models import BaseChatModel
 
-from core.types import ModelConfig, ModelProvider, ProviderConfig
+from thund3rbot.types import ModelConfig, ModelProvider, ProviderConfig
 
 logger = logging.getLogger(__name__)
 

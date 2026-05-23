@@ -23,7 +23,7 @@ class FakeChatModel:
 
 
 def framework_with_fake(*responses: str):
-    from core import AgentFramework, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFramework, FrameworkConfig, ModelConfig
 
     return AgentFramework(
         FrameworkConfig(
@@ -33,18 +33,7 @@ def framework_with_fake(*responses: str):
     )
 
 
-def test_import_core_does_not_import_host_frameworks():
-    script = (
-        "import core, sys; "
-        "blocked=[n for n in ('fastapi','fastmcp','click','rich') if n in sys.modules]; "
-        "raise SystemExit(1 if blocked else 0)"
-    )
-    completed = subprocess.run([sys.executable, "-c", script], check=False)
-    assert completed.returncode == 0
-
-
-def test_public_imports_from_thund3rbot_and_core_compatibility():
-    from core import AgentSpec as LegacyAgentSpec
+def test_public_imports_from_thund3rbot():
     from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, tool
 
     framework = AgentFramework(FrameworkConfig(enable_default_tools=False))
@@ -56,7 +45,6 @@ def test_public_imports_from_thund3rbot_and_core_compatibility():
         return "pong"
 
     assert AgentSpec is not None
-    assert LegacyAgentSpec is AgentSpec
     assert framework.tools.register(ping) is ping
 
 
@@ -74,7 +62,7 @@ def test_import_thund3rbot_does_not_import_optional_frameworks_or_providers():
 
 
 def test_config_accepts_model_and_model_name_alias():
-    from core import ModelConfig
+    from thund3rbot import ModelConfig
 
     assert ModelConfig(provider="openai", model="gpt-4o-mini").model == "gpt-4o-mini"
     assert ModelConfig(provider="openai", model_name="gpt-4o-mini").model == "gpt-4o-mini"
@@ -82,7 +70,7 @@ def test_config_accepts_model_and_model_name_alias():
 
 
 def test_tool_registration_and_scope_visibility():
-    from core import AgentFramework, AgentScope, FrameworkConfig, tool
+    from thund3rbot import AgentFramework, AgentScope, FrameworkConfig, tool
 
     framework = AgentFramework(FrameworkConfig(enable_default_tools=False))
 
@@ -104,7 +92,7 @@ def test_tool_registration_and_scope_visibility():
 
 
 def test_python_and_markdown_skills(tmp_path):
-    from core import Skill, ToolNotFoundError
+    from thund3rbot import Skill, ToolNotFoundError
 
     framework = framework_with_fake("done")
     framework.skills.register(Skill(name="citation_check", instructions="Check citations."))
@@ -132,7 +120,7 @@ def test_python_and_markdown_skills(tmp_path):
 
 
 def test_skill_cycle_raises_at_registration():
-    from core import Skill, SkillConfigError
+    from thund3rbot import Skill, SkillConfigError
 
     framework = framework_with_fake("done")
     framework.skills.register(Skill(name="a", requires=["b"]))
@@ -142,7 +130,7 @@ def test_skill_cycle_raises_at_registration():
 
 @pytest.mark.asyncio
 async def test_task_agent_runs_with_fake_model():
-    from core import AgentScope, AgentSpec
+    from thund3rbot import AgentScope, AgentSpec
 
     framework = framework_with_fake("hello")
     result = await framework.run_agent(
@@ -156,7 +144,7 @@ async def test_task_agent_runs_with_fake_model():
 
 @pytest.mark.asyncio
 async def test_repeated_runs_have_unique_run_ids_and_stable_session_memory():
-    from core import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
 
     class CapturingModel:
         def __init__(self):
@@ -191,7 +179,7 @@ async def test_repeated_runs_have_unique_run_ids_and_stable_session_memory():
 
 @pytest.mark.asyncio
 async def test_context_is_injected_into_model_messages():
-    from core import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
 
     captured = []
 
@@ -221,14 +209,14 @@ async def test_context_is_injected_into_model_messages():
 async def test_timeout_is_not_successful_completion():
     import asyncio
 
-    from core import AgentScope, AgentSpec, RunOptions
+    from thund3rbot import AgentScope, AgentSpec, RunOptions
 
     class SlowModel:
         async def ainvoke(self, messages):
             await asyncio.sleep(0.05)
             return AIMessage(content="late")
 
-    from core import AgentFramework, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFramework, FrameworkConfig, ModelConfig
 
     framework = AgentFramework(
         FrameworkConfig(
@@ -249,7 +237,7 @@ async def test_timeout_is_not_successful_completion():
 
 @pytest.mark.asyncio
 async def test_task_agent_tool_loop_uses_registered_callable():
-    from core import AgentScope, AgentSpec
+    from thund3rbot import AgentScope, AgentSpec
 
     framework = framework_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
@@ -273,7 +261,7 @@ async def test_task_agent_tool_loop_uses_registered_callable():
 
 @pytest.mark.asyncio
 async def test_agent_spec_accepts_decorated_tool_callable_directly():
-    from core import AgentScope, AgentSpec, tool
+    from thund3rbot import AgentScope, AgentSpec, tool
 
     framework = framework_with_fake(
         '<tool_call>{"name": "word_count", "arguments": {"text": "one two three"}}</tool_call>',
@@ -297,7 +285,7 @@ async def test_agent_spec_accepts_decorated_tool_callable_directly():
 
 @pytest.mark.asyncio
 async def test_typed_output_schema_returns_model_instance():
-    from core import AgentScope, AgentSpec
+    from thund3rbot import AgentScope, AgentSpec
 
     class ResearchReport(BaseModel):
         summary: str
@@ -320,7 +308,7 @@ async def test_typed_output_schema_returns_model_instance():
 
 @pytest.mark.asyncio
 async def test_run_options_step_callback_and_tool_budget():
-    from core import AgentScope, AgentSpec, RunOptions
+    from thund3rbot import AgentScope, AgentSpec, RunOptions
 
     framework = framework_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
@@ -347,7 +335,7 @@ async def test_run_options_step_callback_and_tool_budget():
 
 @pytest.mark.asyncio
 async def test_tool_approval_hook_can_modify_arguments_and_observe_output():
-    from core import AgentScope, AgentSpec, RunOptions, tool
+    from thund3rbot import AgentScope, AgentSpec, RunOptions, tool
 
     framework = framework_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
@@ -382,7 +370,7 @@ async def test_tool_approval_hook_can_modify_arguments_and_observe_output():
 
 @pytest.mark.asyncio
 async def test_tool_approval_hook_can_reject_tool_call():
-    from core import AgentScope, AgentSpec, RunOptions, tool
+    from thund3rbot import AgentScope, AgentSpec, RunOptions, tool
 
     framework = framework_with_fake(
         '<tool_call>{"name": "send_email", "arguments": {"to": "a@example.com"}}</tool_call>',
@@ -411,7 +399,7 @@ async def test_tool_approval_hook_can_reject_tool_call():
 
 @pytest.mark.asyncio
 async def test_run_options_max_tool_calls_stops_with_partial_result():
-    from core import AgentScope, AgentSpec, RunOptions
+    from thund3rbot import AgentScope, AgentSpec, RunOptions
 
     framework = framework_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
@@ -435,7 +423,7 @@ async def test_run_options_max_tool_calls_stops_with_partial_result():
 
 @pytest.mark.asyncio
 async def test_sub_agent_and_orchestrator_spawn_children_on_same_runtime():
-    from core import AgentScope, AgentSpec
+    from thund3rbot import AgentScope, AgentSpec
 
     framework = framework_with_fake("child done")
     sub_agent = framework.agent(AgentSpec(name="sub", scope=AgentScope.SUB_AGENT))
@@ -453,7 +441,7 @@ async def test_sub_agent_and_orchestrator_spawn_children_on_same_runtime():
 
 @pytest.mark.asyncio
 async def test_sub_agent_llm_can_use_spawn_tool():
-    from core import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
 
     parent_model = FakeChatModel(
         '<tool_call>{"name": "create_task_agent", "arguments": {"name": "child", "task": "Do it"}}</tool_call>',
@@ -495,7 +483,7 @@ async def test_workflow_registration_and_run():
 
 @pytest.mark.asyncio
 async def test_framework_events_and_named_workflow_steps():
-    from core import AgentScope, AgentSpec
+    from thund3rbot import AgentScope, AgentSpec
 
     framework = framework_with_fake("step output")
     events = []
@@ -520,7 +508,7 @@ async def test_framework_events_and_named_workflow_steps():
 
 
 def test_prompt_registry_and_decorator():
-    from core import prompt
+    from thund3rbot import prompt
 
     framework = framework_with_fake("unused")
 
@@ -555,7 +543,7 @@ def test_namespaced_tool_resolution_uses_public_tool_name():
 
 @pytest.mark.asyncio
 async def test_multimodal_content_and_artifact_tool_flow():
-    from core import AgentFramework, AgentScope, AgentSpec, Artifact, ContentPart, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFramework, AgentScope, AgentSpec, Artifact, ContentPart, FrameworkConfig, ModelConfig
 
     captured_messages = []
 
@@ -605,13 +593,13 @@ async def test_multimodal_content_and_artifact_tool_flow():
     assert result.output == "done"
 
 
-def test_fastapi_adapter_can_mount_router_without_core_importing_fastapi():
-    from fastapi import FastAPI
+def test_fastapi_adapter_can_mount_router_when_extra_is_installed():
+    fastapi = pytest.importorskip("fastapi")
 
-    from core.integrations.fastapi import create_agent_router
+    from thund3rbot.integrations.fastapi import create_agent_router
 
     framework = framework_with_fake("ok")
-    app = FastAPI()
+    app = fastapi.FastAPI()
     app.include_router(create_agent_router(framework), prefix="/api/v1")
 
     routes = {route.path for route in app.routes}
@@ -621,6 +609,6 @@ def test_fastapi_adapter_can_mount_router_without_core_importing_fastapi():
 def test_fastmcp_adapter_import_does_not_import_fastmcp():
     sys.modules.pop("fastmcp", None)
 
-    import core.integrations.fastmcp  # noqa: F401
+    import thund3rbot.integrations.fastmcp  # noqa: F401
 
     assert "fastmcp" not in sys.modules

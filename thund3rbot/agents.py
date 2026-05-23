@@ -11,9 +11,9 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool, tool as lc_tool
 
-from core.memory import BaseMemoryStore
-from core.parser import ResponseParser
-from core.types import (
+from thund3rbot.memory import BaseMemoryStore
+from thund3rbot.parser import ResponseParser
+from thund3rbot.types import (
     AgentFinished,
     AgentInput,
     AgentScope,

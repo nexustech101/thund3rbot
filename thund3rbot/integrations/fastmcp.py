@@ -4,8 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from core import AgentFramework
-from core.types import AgentScope
+from thund3rbot import AgentFramework, AgentScope
 
 
 def register_fastmcp_tools(framework: AgentFramework, mcp: Any, names: Iterable[str] | None = None) -> None:

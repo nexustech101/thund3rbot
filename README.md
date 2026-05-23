@@ -5,7 +5,7 @@ applications, APIs, scripts, CLIs, and automation services. It gives developers 
 small runtime kernel: model configuration, instructions, tools, skills, context,
 memory, workflows, run tracking, and lifecycle hooks.
 
-The core package is intentionally lean. Provider SDKs, FastAPI, MCP/FastMCP, CLI
+The base package is intentionally lean. Provider SDKs, FastAPI, MCP/FastMCP, CLI
 libraries, and multimodal helper stacks are optional extras.
 
 ## Install
@@ -60,8 +60,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-`core` imports are still available for compatibility, but new code should import
-from `thund3rbot`.
+All public imports come from `thund3rbot`.
 
 ## Runtime Model
 
@@ -195,7 +194,7 @@ names raise `ToolNotFoundError` at load time.
 ## Multimodal Foundation
 
 Agents can receive text or typed content parts. Tools can return typed artifacts.
-The core only provides the data contracts; OCR, browser automation, media
+The base package only provides the data contracts; OCR, browser automation, media
 processing, and vector stores belong in optional tools or host applications.
 
 ```python
@@ -276,14 +275,12 @@ pip install "thund3rbot[mcp]"
 ```python
 from fastapi import FastAPI
 from thund3rbot import AgentFramework, FrameworkConfig
-from core.integrations.fastapi import create_agent_router
+from thund3rbot.integrations.fastapi import create_agent_router
 
 framework = AgentFramework(FrameworkConfig())
 app = FastAPI()
 app.include_router(create_agent_router(framework), prefix="/api/v1")
 ```
-
-The compatibility adapter path is currently `core.integrations.*`.
 
 ## Model Configuration
 
@@ -316,7 +313,7 @@ framework = AgentFramework(
 ## Project Layout
 
 ```text
-core/
+thund3rbot/
   framework.py             AgentFramework runtime
   agents.py                scoped task/sub/orchestrator agents
   tooling.py               tool registry and @tool decorator
@@ -327,7 +324,5 @@ core/
   integrations/
     fastapi.py             optional FastAPI router adapter
     fastmcp.py             optional FastMCP/MCP helpers
-
-thund3rbot/
-  __init__.py              official public API facade
+  __init__.py              public API
 ```
