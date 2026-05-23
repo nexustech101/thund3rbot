@@ -1,17 +1,51 @@
 # Thund3rBot
 
-Thund3rBot is a tiny embeddable Python framework for building scoped agents inside
-applications, APIs, scripts, CLIs, and automation services. It gives developers a
-small runtime kernel: model configuration, instructions, tools, skills, context,
-memory, workflows, run tracking, and lifecycle hooks.
+Thund3rBot is a minimal Python framework for embedding scoped AI agents in real
+software: APIs, backend services, scripts, CLIs, scrapers, automation jobs, and
+internal tools.
 
-The base package is intentionally lean. Provider SDKs, FastAPI, MCP/FastMCP, CLI
-libraries, and multimodal helper stacks are optional extras.
+It is designed for teams that want agentic workflows without handing their
+application logic to a hosted agent platform. You provide the model, tools,
+instructions, context, memory, and host application. Thund3rBot provides the
+small runtime kernel that keeps those pieces organized.
 
-## Install
+## Why Thund3rBot?
+
+Most agent frameworks either become application platforms or thin wrappers around
+one provider. Thund3rBot takes a smaller stance:
+
+- **Embeddable by default**: create a runtime, register tools, create an agent,
+  call `run`.
+- **Scoped agents**: choose between task agents, sub-agents, and orchestrators.
+- **Runtime-local registries**: tools, skills, prompts, workflows, runs, and
+  memory are owned by an `AgentFramework` instance.
+- **Provider-flexible**: use local/open-source models through LangChain-compatible
+  chat models, or configure hosted providers through optional extras.
+- **Production-shaped controls**: unique run IDs, session memory, context
+  injection, structured outputs, tool budgets, timeouts, events, and approval
+  hooks.
+- **Lean package surface**: FastAPI, MCP, provider SDKs, CLI helpers, and other
+  heavier dependencies are optional.
+
+Good fits include webpage extraction, email drafting, workflow automation,
+sentiment analysis, structured data extraction, system administration helpers,
+recurring business tasks, and embedding model-backed behavior in service routes.
+
+## Installation
 
 ```bash
 pip install thund3rbot
+```
+
+The base install includes only the runtime essentials.
+
+Optional extras:
+
+```bash
+pip install "thund3rbot[providers]"  # OpenAI, Anthropic, Google, Ollama adapters
+pip install "thund3rbot[fastapi]"    # FastAPI router adapter
+pip install "thund3rbot[mcp]"        # MCP/FastMCP helpers
+pip install "thund3rbot[all]"        # everything
 ```
 
 For local development:
@@ -20,18 +54,9 @@ For local development:
 pip install -e ".[dev]"
 ```
 
-Useful extras:
-
-```bash
-pip install "thund3rbot[providers]"
-pip install "thund3rbot[fastapi]"
-pip install "thund3rbot[mcp]"
-pip install "thund3rbot[all]"
-```
-
 Python 3.11+ is required.
 
-## Minimal Agent
+## Quickstart
 
 ```python
 import asyncio
@@ -45,11 +70,12 @@ async def main() -> None:
             default_model=ModelConfig(provider="ollama", model="llama3.2")
         )
     )
+
     agent = framework.agent(
         AgentSpec(
             name="assistant",
             scope=AgentScope.TASK,
-            instructions="Answer concisely using clear language.",
+            instructions="Answer concisely in plain English.",
         )
     )
 
@@ -62,15 +88,26 @@ asyncio.run(main())
 
 All public imports come from `thund3rbot`.
 
-## Runtime Model
+## Core Concepts
 
-Agents have separate identities for production use:
+### Framework Runtime
 
-- `agent_id`: stable identity from the `AgentSpec`
-- `session_id`: memory lane for conversation/history, defaulting to `agent_id`
-- `run_id`: unique id for each call
+`AgentFramework` is the runtime boundary. It owns local registries for tools,
+skills, prompts, workflows, events, memory, and run results.
 
-Per-run context is passed explicitly and injected into the model message stream:
+```python
+from thund3rbot import AgentFramework, FrameworkConfig
+
+framework = AgentFramework(FrameworkConfig())
+```
+
+### Agent Identity
+
+Thund3rBot separates identity for production use:
+
+- `agent_id`: stable identity from an `AgentSpec`
+- `session_id`: memory lane for conversation history, defaulting to `agent_id`
+- `run_id`: unique ID for each call
 
 ```python
 result = await framework.run_agent(
@@ -80,24 +117,29 @@ result = await framework.run_agent(
 )
 ```
 
-## Scopes
+Per-run `context` is injected into the model message stream so host applications
+can pass request, account, workflow, or policy state without folding it into the
+user prompt.
+
+### Agent Scopes
 
 | Scope | Use |
 | --- | --- |
 | `task_agent` | Focused single-task execution. |
-| `sub_agent` | Mid-level coordinator that can spawn task agents. |
-| `orchestrator` | Top-level coordinator that can spawn sub-agents, including parallel sub-agent runs. |
+| `sub_agent` | Coordinates a domain-specific subproblem and can spawn task agents. |
+| `orchestrator` | Decomposes larger work and can coordinate sub-agents. |
 
 Each scope receives a built-in scope contract before developer instructions and
 skill instructions are added.
 
 ## Tools
 
-Define tools with `@tool`, pass decorated callables directly to agents, or
-register tools by name for reuse.
+Tools are plain Python callables or LangChain-compatible tools. They can be
+registered globally on a framework instance, passed directly to an agent, or
+granted by skills.
 
 ```python
-from thund3rbot import AgentScope, tool
+from thund3rbot import AgentScope, AgentSpec, tool
 
 
 @tool(scopes=[AgentScope.TASK], risk="low", tags=["text"])
@@ -117,21 +159,24 @@ agent = framework.agent(
 )
 ```
 
-Registered tools can also be referenced by string name:
+Reusable named tools:
 
 ```python
 framework.tools.register(word_count)
-tools = ["word_count"]
+
+agent = framework.agent(
+    AgentSpec(name="counter", scope=AgentScope.TASK, tools=["word_count"])
+)
 ```
 
-Tool metadata supports `risk`, `requires_approval`, and `tags` for host-owned
-automation policy.
+Tool metadata supports `risk`, `requires_approval`, and `tags`, which host
+applications can use to enforce their own safety and review policies.
 
 ## Approval Hooks
 
-Use `RunOptions` to approve, reject, or modify tool calls before they execute.
-This is useful for email, financial transactions, system administration, and
-other irreversible work.
+Use `RunOptions` to approve, reject, or modify tool calls before execution.
+This is intentionally small and host-owned: Thund3rBot exposes the hook; your
+application decides the policy.
 
 ```python
 from thund3rbot import RunOptions, ToolApproval
@@ -149,16 +194,16 @@ result = await agent.run(
 )
 ```
 
-`after_tool_call` and `on_tool_error` hooks are also available for tracing,
-auditing, and host-level recovery.
+`RunOptions` also supports step callbacks, tool budgets, timeouts,
+`after_tool_call`, and `on_tool_error`.
 
 ## Skills
 
-Skills are reusable instruction/tool/context bundles. They do not create new
-agents by themselves; they extend an agent's prompt and available tools.
+Skills are reusable bundles of instructions and tool grants. They do not create
+agents by themselves; they extend an agent's prompt and available tool set.
 
 ```python
-from thund3rbot import Skill
+from thund3rbot import AgentScope, Skill
 
 framework.skills.register(
     Skill(
@@ -191,42 +236,14 @@ framework.skills.load_dir("skills")
 Circular skill dependencies raise `SkillConfigError`. Unknown Markdown tool
 names raise `ToolNotFoundError` at load time.
 
-## Multimodal Foundation
+## Structured Outputs
 
-Agents can receive text or typed content parts. Tools can return typed artifacts.
-The base package only provides the data contracts; OCR, browser automation, media
-processing, and vector stores belong in optional tools or host applications.
-
-```python
-from thund3rbot import Artifact, ContentPart
-
-
-@framework.tools.register(scopes=[AgentScope.TASK])
-def extract_page(url: str):
-    """Extract page content."""
-
-    return Artifact(type="markdown", uri=url, data="# Extracted page")
-
-
-result = await framework.run_agent(
-    AgentSpec(name="extractor", scope=AgentScope.TASK, tools=["extract_page"]),
-    [
-        ContentPart(type="text", text="Extract this page."),
-        ContentPart(type="screenshot", uri="file:///tmp/page.png", mime_type="image/png"),
-    ],
-)
-```
-
-Supported content/artifact types are `text`, `image`, `audio`, `video`, `html`,
-`markdown`, `json`, `file`, and `screenshot`.
-
-## Typed Outputs
-
-Agents can declare a Pydantic output schema. The framework asks the model for
-JSON and deserializes `result.output`.
+Agents can declare a Pydantic output schema. The runtime asks the model for JSON
+and deserializes `result.output`.
 
 ```python
 from pydantic import BaseModel
+from thund3rbot import AgentScope, AgentSpec
 
 
 class ResearchReport(BaseModel):
@@ -245,9 +262,39 @@ agent = framework.agent(
 )
 ```
 
+## Multimodal Inputs and Artifacts
+
+Thund3rBot includes lightweight data contracts for multimodal work. The base
+package does not ship OCR, browser automation, media processing, vector stores,
+or document parsers. Those belong in optional tools or host applications.
+
+```python
+from thund3rbot import AgentScope, AgentSpec, Artifact, ContentPart
+
+
+@framework.tools.register(scopes=[AgentScope.TASK])
+def extract_page(url: str):
+    """Extract page content."""
+
+    return Artifact(type="markdown", uri=url, data="# Extracted page")
+
+
+result = await framework.run_agent(
+    AgentSpec(name="extractor", scope=AgentScope.TASK, tools=["extract_page"]),
+    [
+        ContentPart(type="text", text="Extract this page."),
+        ContentPart(type="screenshot", uri="file:///tmp/page.png", mime_type="image/png"),
+    ],
+)
+```
+
+Supported content and artifact types are `text`, `image`, `audio`, `video`,
+`html`, `markdown`, `json`, `file`, and `screenshot`.
+
 ## Workflows
 
-Workflows are in-process pipelines registered on a framework instance.
+Workflows are in-process pipelines registered on a framework instance. Use
+`fw.step(...)` inside workflows when you want named workflow-step events.
 
 ```python
 @framework.workflow("brief")
@@ -263,13 +310,12 @@ async def brief(context, fw):
 result = await framework.workflows.run("brief", {"topic": "SQLite"})
 ```
 
-## Adapters
+## FastAPI Adapter
 
-FastAPI and MCP support are opt-in:
+FastAPI support is optional.
 
-```python
+```bash
 pip install "thund3rbot[fastapi]"
-pip install "thund3rbot[mcp]"
 ```
 
 ```python
@@ -280,6 +326,47 @@ from thund3rbot.integrations.fastapi import create_agent_router
 framework = AgentFramework(FrameworkConfig())
 app = FastAPI()
 app.include_router(create_agent_router(framework), prefix="/api/v1")
+```
+
+The router exposes:
+
+| Method | Path |
+| --- | --- |
+| `POST` | `/api/v1/agents/run` |
+| `GET` | `/api/v1/agents/{run_id}` |
+| `GET` | `/api/v1/agents/` |
+
+## MCP and FastMCP
+
+MCP support is optional.
+
+```bash
+pip install "thund3rbot[mcp]"
+```
+
+```python
+from fastmcp import FastMCP
+from thund3rbot.integrations.fastmcp import register_fastmcp_tools
+
+mcp = FastMCP("my-agent-tools")
+register_fastmcp_tools(framework, mcp)
+```
+
+Tools and prompt metadata can also be loaded from MCP servers under namespaces:
+
+```python
+await framework.tools.load_mcp(
+    "http://127.0.0.1:8001/mcp/v1",
+    namespace="crm",
+    overrides={
+        "crm.get_contact": "Fetch a CRM contact by email.",
+    },
+)
+
+await framework.prompts.load_mcp(
+    "http://127.0.0.1:8001/mcp/v1",
+    namespace="crm",
+)
 ```
 
 ## Model Configuration
@@ -299,7 +386,7 @@ framework = AgentFramework(
 )
 ```
 
-For tests or custom providers, pass a model factory:
+For tests, local wrappers, or custom providers, pass a model factory:
 
 ```python
 framework = AgentFramework(
@@ -309,6 +396,49 @@ framework = AgentFramework(
     )
 )
 ```
+
+The custom model should provide `ainvoke(messages)`, or be a callable that
+returns a response. If it supports `bind_tools(tools)`, Thund3rBot will call it
+when tools are available.
+
+## Public API
+
+Common imports:
+
+```python
+from thund3rbot import (
+    AgentFramework,
+    AgentScope,
+    AgentSpec,
+    Artifact,
+    ContentPart,
+    FrameworkConfig,
+    ModelConfig,
+    ProviderConfig,
+    RunOptions,
+    Skill,
+    ToolApproval,
+    prompt,
+    tool,
+)
+```
+
+Optional adapters:
+
+```python
+from thund3rbot.integrations.fastapi import create_agent_router
+from thund3rbot.integrations.fastmcp import register_fastmcp_tools
+```
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+python -m pytest -q
+python -m ruff check .
+```
+
+FastAPI-dependent tests are skipped unless the `fastapi` extra is installed.
 
 ## Project Layout
 
@@ -326,3 +456,7 @@ thund3rbot/
     fastmcp.py             optional FastMCP/MCP helpers
   __init__.py              public API
 ```
+
+## License
+
+MIT License. See [LICENSE](LICENSE).

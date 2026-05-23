@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "thund3rbot"
 version = "1.0.0"
-description = "A minimal, extensible multi-agent AI framework"
+description = "A minimal embeddable agent framework for Python applications"
 requires-python = ">=3.11"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { text = "MIT" }
@@ -21,7 +21,19 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+keywords = [
+    "agents",
+    "ai",
+    "automation",
+    "framework",
+    "llm",
+    "multi-agent",
+    "tools",
 ]
 
 dependencies = [
@@ -93,6 +105,7 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/nexustech101/thund3rbot"
 Repository = "https://github.com/nexustech101/thund3rbot"
+Issues = "https://github.com/nexustech101/thund3rbot/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = [
