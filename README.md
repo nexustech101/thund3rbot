@@ -31,6 +31,27 @@ Good fits include webpage extraction, email drafting, workflow automation,
 sentiment analysis, structured data extraction, system administration helpers,
 recurring business tasks, and embedding model-backed behavior in service routes.
 
+## Examples
+
+The repository includes practical examples in [`examples/`](examples/):
+
+- [`local_cli_chat.py`](examples/local_cli_chat.py) - interactive local/provider-backed CLI chat.
+- [`typed_sentiment_service.py`](examples/typed_sentiment_service.py) - structured sentiment analysis.
+- [`approval_hooks_finance.py`](examples/approval_hooks_finance.py) - high-risk transaction approval hooks.
+- [`webpage_extraction_tool.py`](examples/webpage_extraction_tool.py) - webpage extraction into a markdown artifact.
+- [`registers_agent_cli.py`](examples/registers_agent_cli.py) - minimal URL-to-agent-to-database ecommerce extractor.
+- [`fastapi_agent_route.py`](examples/fastapi_agent_route.py) - FastAPI route integration.
+
+The scripted examples run without provider API keys:
+
+```bash
+python examples/typed_sentiment_service.py
+python examples/approval_hooks_finance.py
+python examples/webpage_extraction_tool.py
+```
+
+The registers example requires `pip install "thund3rbot[registers,cli]"`.
+
 ## Installation
 
 ```bash
