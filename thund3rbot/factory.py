@@ -15,8 +15,8 @@ from thund3rbot.types import (
     AgentInput,
     AgentScope,
     AgentSpec,
-    FrameworkConfig,
-    FrameworkEvent,
+    FactoryConfig,
+    FactoryEvent,
     ModelConfig,
     RunOptions,
     RunResult,
@@ -26,12 +26,12 @@ from thund3rbot.types import (
 from thund3rbot.workflows import WorkflowRegistry
 
 
-class AgentFramework:
+class AgentFactory:
     """A self-contained runtime for creating agents, tools, skills, and workflows."""
 
     def __init__(
         self,
-        config: FrameworkConfig,
+        config: FactoryConfig,
         *,
         memory: BaseMemoryStore | None = None,
     ) -> None:
@@ -116,7 +116,7 @@ class AgentFramework:
         self._event_hooks.append(hook)
         return hook
 
-    async def emit(self, event: FrameworkEvent) -> None:
+    async def emit(self, event: FactoryEvent) -> None:
         for hook in list(self._event_hooks):
             value = hook(event)
             if inspect.isawaitable(value):

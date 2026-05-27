@@ -1,4 +1,4 @@
-"""Framework-owned chat model factory."""
+"""Factory-owned chat model creation."""
 from __future__ import annotations
 
 import logging
@@ -16,7 +16,7 @@ def create_llm(
     config: Optional[ModelConfig] = None,
     providers: dict[str, ProviderConfig] | None = None,
 ) -> BaseChatModel:
-    """Instantiate a LangChain chat model from explicit framework config."""
+    """Instantiate a LangChain chat model from explicit factory config."""
 
     config = config or ModelConfig()
     provider_name = config.provider.value if isinstance(config.provider, ModelProvider) else str(config.provider)
@@ -81,4 +81,3 @@ def _api_key(provider: ProviderConfig | None, default_env: str) -> str:
 
 def _base_url(provider: ProviderConfig | None, default_env: str, fallback: str) -> str:
     return (provider.base_url if provider and provider.base_url else os.getenv(default_env)) or fallback
-

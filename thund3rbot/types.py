@@ -106,8 +106,8 @@ class Artifact(BaseModel):
 AgentInput = str | list[ContentPart]
 
 
-class FrameworkConfig(BaseModel):
-    """Top-level configuration for an ``AgentFramework`` runtime."""
+class FactoryConfig(BaseModel):
+    """Top-level configuration for an ``AgentFactory`` runtime."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -152,7 +152,7 @@ class ToolSpec(BaseModel):
 
 
 class PromptSpec(BaseModel):
-    """Prompt template registered with the framework."""
+    """Prompt template registered with the factory."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -258,33 +258,33 @@ class RunOptions(BaseModel):
     on_tool_error: Callable[[ToolCallContext, Exception], Any] | None = None
 
 
-class FrameworkEvent(BaseModel):
+class FactoryEvent(BaseModel):
     event_type: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     run_id: str
     agent_name: str
 
 
-class AgentStarted(FrameworkEvent):
+class AgentStarted(FactoryEvent):
     event_type: str = "agent_started"
     scope: AgentScope
     input: Any
 
 
-class ToolCalled(FrameworkEvent):
+class ToolCalled(FactoryEvent):
     event_type: str = "tool_called"
     tool: str
     input: Any = None
 
 
-class ToolResult(FrameworkEvent):
+class ToolResult(FactoryEvent):
     event_type: str = "tool_result"
     tool: str
     output: Any = None
     duration_ms: float = 0.0
 
 
-class AgentFinished(FrameworkEvent):
+class AgentFinished(FactoryEvent):
     event_type: str = "agent_finished"
     output: Any = None
     stop_reason: StopReason | None = None
@@ -292,28 +292,28 @@ class AgentFinished(FrameworkEvent):
     duration_ms: float = 0.0
 
 
-class WorkflowStepStarted(FrameworkEvent):
+class WorkflowStepStarted(FactoryEvent):
     event_type: str = "workflow_step_started"
     workflow: str = ""
     step: str
 
 
-class WorkflowStepFinished(FrameworkEvent):
+class WorkflowStepFinished(FactoryEvent):
     event_type: str = "workflow_step_finished"
     workflow: str = ""
     step: str
     duration_ms: float = 0.0
 
 
-class FrameworkConfigError(ValueError):
-    """Base framework configuration error."""
+class FactoryConfigError(ValueError):
+    """Base factory configuration error."""
 
 
-class ToolNotFoundError(FrameworkConfigError):
+class ToolNotFoundError(FactoryConfigError):
     """Raised when a named tool cannot be resolved."""
 
 
-class SkillConfigError(FrameworkConfigError):
+class SkillConfigError(FactoryConfigError):
     """Raised when skill registration or composition is invalid."""
 
 

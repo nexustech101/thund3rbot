@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_debug: bool = False
-    api_title: str = "Agent Framework API"
+    api_title: str = "Agent Factory API"
     api_version: str = "0.1.0"
 
     # ── MCP Server ─────────────────────────────────────────────────

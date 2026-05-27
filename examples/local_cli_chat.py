@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 
 
 @lru_cache(maxsize=1)
@@ -16,8 +16,8 @@ def create_assistant(
     provider: str = "ollama",
     model: str = "qwen3.5:9b",
 ):
-    framework = AgentFramework(
-        FrameworkConfig(
+    framework = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider=provider, model=model),
         )
     )

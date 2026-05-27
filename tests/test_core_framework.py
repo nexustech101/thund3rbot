@@ -22,11 +22,11 @@ class FakeChatModel:
         return AIMessage(content=self.responses.pop(0))
 
 
-def framework_with_fake(*responses: str):
-    from thund3rbot import AgentFramework, FrameworkConfig, ModelConfig
+def factory_with_fake(*responses: str):
+    from thund3rbot import AgentFactory, FactoryConfig, ModelConfig
 
-    return AgentFramework(
-        FrameworkConfig(
+    return AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="ollama", model="fake"),
             model_factory=lambda _: FakeChatModel(*responses),
         )
@@ -34,9 +34,9 @@ def framework_with_fake(*responses: str):
 
 
 def test_public_imports_from_thund3rbot():
-    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, tool
+    from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, tool
 
-    framework = AgentFramework(FrameworkConfig(enable_default_tools=False))
+    factory = AgentFactory(FactoryConfig(enable_default_tools=False))
 
     @tool(scopes=[AgentScope.TASK])
     def ping() -> str:
@@ -45,10 +45,10 @@ def test_public_imports_from_thund3rbot():
         return "pong"
 
     assert AgentSpec is not None
-    assert framework.tools.register(ping) is ping
+    assert factory.tools.register(ping) is ping
 
 
-def test_import_thund3rbot_does_not_import_optional_frameworks_or_providers():
+def test_import_thund3rbot_does_not_import_optional_factories_or_providers():
     script = (
         "import thund3rbot, sys; "
         "blocked=[n for n in ("
@@ -70,9 +70,9 @@ def test_config_accepts_model_and_model_name_alias():
 
 
 def test_tool_registration_and_scope_visibility():
-    from thund3rbot import AgentFramework, AgentScope, FrameworkConfig, tool
+    from thund3rbot import AgentFactory, AgentScope, FactoryConfig, tool
 
-    framework = AgentFramework(FrameworkConfig(enable_default_tools=False))
+    factory = AgentFactory(FactoryConfig(enable_default_tools=False))
 
     @tool(scopes=[AgentScope.TASK], risk="high", requires_approval=True, tags=["external"])
     def shout(text: str) -> str:
@@ -80,23 +80,23 @@ def test_tool_registration_and_scope_visibility():
 
         return text.upper()
 
-    framework.tools.register(shout)
+    factory.tools.register(shout)
 
-    assert "shout" in framework.tools.names()
-    spec = framework.tools.get_spec("shout")
+    assert "shout" in factory.tools.names()
+    spec = factory.tools.get_spec("shout")
     assert spec.risk == "high"
     assert spec.requires_approval is True
     assert spec.tags == {"external"}
-    assert [tool.name for tool in framework.tools.get(scope=AgentScope.TASK)] == ["shout"]
-    assert framework.tools.get(scope=AgentScope.ORCHESTRATOR) == []
+    assert [tool.name for tool in factory.tools.get(scope=AgentScope.TASK)] == ["shout"]
+    assert factory.tools.get(scope=AgentScope.ORCHESTRATOR) == []
 
 
 def test_python_and_markdown_skills(tmp_path):
     from thund3rbot import Skill, ToolNotFoundError
 
-    framework = framework_with_fake("done")
-    framework.skills.register(Skill(name="citation_check", instructions="Check citations."))
-    framework.skills.register(
+    factory = factory_with_fake("done")
+    factory.skills.register(Skill(name="citation_check", instructions="Check citations."))
+    factory.skills.register(
         Skill(name="python-skill", instructions="Use Python style.", requires=["citation_check"])
     )
 
@@ -107,33 +107,33 @@ def test_python_and_markdown_skills(tmp_path):
         ),
         encoding="utf-8",
     )
-    loaded = framework.skills.load_dir(tmp_path)
+    loaded = factory.skills.load_dir(tmp_path)
 
-    assert framework.skills.get("python-skill").instructions == "Use Python style."
-    assert [skill.name for skill in framework.skills.resolve(["research"])] == ["citation_check", "research"]
+    assert factory.skills.get("python-skill").instructions == "Use Python style."
+    assert [skill.name for skill in factory.skills.resolve(["research"])] == ["citation_check", "research"]
     assert loaded[0].name == "research"
     assert loaded[0].tools == ["echo"]
 
     (tmp_path / "bad.md").write_text("---\nname: bad\ntools: [missing]\n---\nNope.", encoding="utf-8")
     with pytest.raises(ToolNotFoundError):
-        framework.skills.load_dir(tmp_path)
+        factory.skills.load_dir(tmp_path)
 
 
 def test_skill_cycle_raises_at_registration():
     from thund3rbot import Skill, SkillConfigError
 
-    framework = framework_with_fake("done")
-    framework.skills.register(Skill(name="a", requires=["b"]))
+    factory = factory_with_fake("done")
+    factory.skills.register(Skill(name="a", requires=["b"]))
     with pytest.raises(SkillConfigError):
-        framework.skills.register(Skill(name="b", requires=["a"]))
+        factory.skills.register(Skill(name="b", requires=["a"]))
 
 
 @pytest.mark.asyncio
 async def test_task_agent_runs_with_fake_model():
     from thund3rbot import AgentScope, AgentSpec
 
-    framework = framework_with_fake("hello")
-    result = await framework.run_agent(
+    factory = factory_with_fake("hello")
+    result = await factory.run_agent(
         AgentSpec(name="assistant", scope=AgentScope.TASK),
         "Say hello",
     )
@@ -144,7 +144,7 @@ async def test_task_agent_runs_with_fake_model():
 
 @pytest.mark.asyncio
 async def test_repeated_runs_have_unique_run_ids_and_stable_session_memory():
-    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 
     class CapturingModel:
         def __init__(self):
@@ -155,13 +155,13 @@ async def test_repeated_runs_have_unique_run_ids_and_stable_session_memory():
             return AIMessage(content=f"ok-{len(self.calls)}")
 
     model = CapturingModel()
-    framework = AgentFramework(
-        FrameworkConfig(
+    factory = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="ollama", model="fake"),
             model_factory=lambda _: model,
         )
     )
-    agent = framework.agent(
+    agent = factory.agent(
         AgentSpec(name="assistant", scope=AgentScope.TASK, session_id="thread-1")
     )
 
@@ -171,15 +171,15 @@ async def test_repeated_runs_have_unique_run_ids_and_stable_session_memory():
     assert first.run_id != second.run_id
     assert first.agent_id == second.agent_id == agent.agent_id
     assert first.session_id == second.session_id == "thread-1"
-    assert first.run_id in framework.runs
-    assert second.run_id in framework.runs
+    assert first.run_id in factory.runs
+    assert second.run_id in factory.runs
     assert any(getattr(message, "content", "") == "first" for message in model.calls[1])
     assert any(getattr(message, "content", "") == "ok-1" for message in model.calls[1])
 
 
 @pytest.mark.asyncio
 async def test_context_is_injected_into_model_messages():
-    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 
     captured = []
 
@@ -188,14 +188,14 @@ async def test_context_is_injected_into_model_messages():
             captured.extend(messages)
             return AIMessage(content="ok")
 
-    framework = AgentFramework(
-        FrameworkConfig(
+    factory = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="ollama", model="fake"),
             model_factory=lambda _: CapturingModel(),
         )
     )
 
-    await framework.run_agent(
+    await factory.run_agent(
         AgentSpec(name="assistant", scope=AgentScope.TASK),
         "Use context",
         context={"account_id": "acct_123", "mode": "dry_run"},
@@ -216,16 +216,16 @@ async def test_timeout_is_not_successful_completion():
             await asyncio.sleep(0.05)
             return AIMessage(content="late")
 
-    from thund3rbot import AgentFramework, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFactory, FactoryConfig, ModelConfig
 
-    framework = AgentFramework(
-        FrameworkConfig(
+    factory = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="ollama", model="fake"),
             model_factory=lambda _: SlowModel(),
         )
     )
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="assistant", scope=AgentScope.TASK),
         "Wait",
         options=RunOptions(timeout_seconds=0.001),
@@ -239,18 +239,18 @@ async def test_timeout_is_not_successful_completion():
 async def test_task_agent_tool_loop_uses_registered_callable():
     from thund3rbot import AgentScope, AgentSpec
 
-    framework = framework_with_fake(
+    factory = factory_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
         "The answer is 8.",
     )
 
-    @framework.tools.register(scopes=[AgentScope.TASK])
+    @factory.tools.register(scopes=[AgentScope.TASK])
     def double(value: int) -> int:
         """Double a value."""
 
         return value * 2
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="calculator", scope=AgentScope.TASK, tools=["double"]),
         "Double 4",
     )
@@ -263,7 +263,7 @@ async def test_task_agent_tool_loop_uses_registered_callable():
 async def test_agent_spec_accepts_decorated_tool_callable_directly():
     from thund3rbot import AgentScope, AgentSpec, tool
 
-    framework = framework_with_fake(
+    factory = factory_with_fake(
         '<tool_call>{"name": "word_count", "arguments": {"text": "one two three"}}</tool_call>',
         "There are 3 words.",
     )
@@ -274,7 +274,7 @@ async def test_agent_spec_accepts_decorated_tool_callable_directly():
 
         return len(text.split())
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="counter", scope=AgentScope.TASK, tools=[word_count]),
         "Count the words.",
     )
@@ -292,8 +292,8 @@ async def test_typed_output_schema_returns_model_instance():
         sources: list[str]
         confidence: float
 
-    framework = framework_with_fake('{"summary": "Useful", "sources": ["a"], "confidence": 0.8}')
-    result = await framework.run_agent(
+    factory = factory_with_fake('{"summary": "Useful", "sources": ["a"], "confidence": 0.8}')
+    result = await factory.run_agent(
         AgentSpec(
             name="researcher",
             scope=AgentScope.TASK,
@@ -310,19 +310,19 @@ async def test_typed_output_schema_returns_model_instance():
 async def test_run_options_step_callback_and_tool_budget():
     from thund3rbot import AgentScope, AgentSpec, RunOptions
 
-    framework = framework_with_fake(
+    factory = factory_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
         "done",
     )
     events = []
 
-    @framework.tools.register(scopes=[AgentScope.TASK])
+    @factory.tools.register(scopes=[AgentScope.TASK])
     def double(value: int) -> int:
         """Double a value."""
 
         return value * 2
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="calculator", scope=AgentScope.TASK, tools=["double"]),
         "Double 4",
         options=RunOptions(max_steps=3, max_tool_calls=1, on_step=lambda event: events.append(event)),
@@ -337,13 +337,13 @@ async def test_run_options_step_callback_and_tool_budget():
 async def test_tool_approval_hook_can_modify_arguments_and_observe_output():
     from thund3rbot import AgentScope, AgentSpec, RunOptions, tool
 
-    framework = framework_with_fake(
+    factory = factory_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
         "done",
     )
     seen = []
 
-    @framework.tools.register
+    @factory.tools.register
     @tool(scopes=[AgentScope.TASK], risk="medium", requires_approval=True)
     def double(value: int) -> int:
         """Double a value."""
@@ -357,7 +357,7 @@ async def test_tool_approval_hook_can_modify_arguments_and_observe_output():
     def after(context, output):
         seen.append(("after", context.arguments, output))
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="calculator", scope=AgentScope.TASK, tools=["double"]),
         "Double 4",
         options=RunOptions(before_tool_call=before, after_tool_call=after),
@@ -372,13 +372,13 @@ async def test_tool_approval_hook_can_modify_arguments_and_observe_output():
 async def test_tool_approval_hook_can_reject_tool_call():
     from thund3rbot import AgentScope, AgentSpec, RunOptions, tool
 
-    framework = framework_with_fake(
+    factory = factory_with_fake(
         '<tool_call>{"name": "send_email", "arguments": {"to": "a@example.com"}}</tool_call>',
         "not sent",
     )
     called = False
 
-    @framework.tools.register
+    @factory.tools.register
     @tool(scopes=[AgentScope.TASK], risk="high", requires_approval=True)
     def send_email(to: str) -> str:
         """Send email."""
@@ -387,7 +387,7 @@ async def test_tool_approval_hook_can_reject_tool_call():
         called = True
         return to
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="mailer", scope=AgentScope.TASK, tools=["send_email"]),
         "Send email",
         options=RunOptions(before_tool_call=lambda context: False),
@@ -401,17 +401,17 @@ async def test_tool_approval_hook_can_reject_tool_call():
 async def test_run_options_max_tool_calls_stops_with_partial_result():
     from thund3rbot import AgentScope, AgentSpec, RunOptions
 
-    framework = framework_with_fake(
+    factory = factory_with_fake(
         '<tool_call>{"name": "double", "arguments": {"value": 4}}</tool_call>',
     )
 
-    @framework.tools.register(scopes=[AgentScope.TASK])
+    @factory.tools.register(scopes=[AgentScope.TASK])
     def double(value: int) -> int:
         """Double a value."""
 
         return value * 2
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="calculator", scope=AgentScope.TASK, tools=["double"]),
         "Double 4",
         options=RunOptions(max_tool_calls=0),
@@ -425,23 +425,23 @@ async def test_run_options_max_tool_calls_stops_with_partial_result():
 async def test_sub_agent_and_orchestrator_spawn_children_on_same_runtime():
     from thund3rbot import AgentScope, AgentSpec
 
-    framework = framework_with_fake("child done")
-    sub_agent = framework.agent(AgentSpec(name="sub", scope=AgentScope.SUB_AGENT))
+    factory = factory_with_fake("child done")
+    sub_agent = factory.agent(AgentSpec(name="sub", scope=AgentScope.SUB_AGENT))
     sub_result = await sub_agent.spawn_task_agent("child-task", "Do child task")
 
-    framework.config.model_factory = lambda _: FakeChatModel("sub done")
-    orchestrator = framework.agent(AgentSpec(name="orch", scope=AgentScope.ORCHESTRATOR))
+    factory.config.model_factory = lambda _: FakeChatModel("sub done")
+    orchestrator = factory.agent(AgentSpec(name="orch", scope=AgentScope.ORCHESTRATOR))
     orch_result = await orchestrator.spawn_sub_agent("child-sub", "Do sub task")
 
     assert sub_result.output == "child done"
     assert orch_result.output == "sub done"
-    assert sub_result.run_id in framework.runs
-    assert orch_result.run_id in framework.runs
+    assert sub_result.run_id in factory.runs
+    assert orch_result.run_id in factory.runs
 
 
 @pytest.mark.asyncio
 async def test_sub_agent_llm_can_use_spawn_tool():
-    from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 
     parent_model = FakeChatModel(
         '<tool_call>{"name": "create_task_agent", "arguments": {"name": "child", "task": "Do it"}}</tool_call>',
@@ -449,32 +449,32 @@ async def test_sub_agent_llm_can_use_spawn_tool():
     )
     child_model = FakeChatModel("child done")
     models = [parent_model, child_model]
-    framework = AgentFramework(
-        FrameworkConfig(
+    factory = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="ollama", model="fake"),
             model_factory=lambda _: models.pop(0),
         )
     )
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="sub", scope=AgentScope.SUB_AGENT),
         "Delegate this",
     )
 
     assert result.output == "parent done"
     assert result.tool_calls == 1
-    assert len(framework.runs) == 2
+    assert len(factory.runs) == 2
 
 
 @pytest.mark.asyncio
 async def test_workflow_registration_and_run():
-    framework = framework_with_fake("unused")
+    factory = factory_with_fake("unused")
 
-    @framework.workflow("collect", description="Collect data")
+    @factory.workflow("collect", description="Collect data")
     async def collect(context, fw):
         return {"value": context["value"], "tools": fw.tools.names()}
 
-    result = await framework.workflows.run("collect", {"value": 42})
+    result = await factory.workflows.run("collect", {"value": 42})
 
     assert result.status == "completed"
     assert result.output["value"] == 42
@@ -482,14 +482,14 @@ async def test_workflow_registration_and_run():
 
 
 @pytest.mark.asyncio
-async def test_framework_events_and_named_workflow_steps():
+async def test_factory_events_and_named_workflow_steps():
     from thund3rbot import AgentScope, AgentSpec
 
-    framework = framework_with_fake("step output")
+    factory = factory_with_fake("step output")
     events = []
-    framework.on_event(lambda event: events.append(event.event_type))
+    factory.on_event(lambda event: events.append(event.event_type))
 
-    @framework.workflow("research_brief")
+    @factory.workflow("research_brief")
     async def research_brief(context, fw):
         result = await fw.step(
             "research",
@@ -498,7 +498,7 @@ async def test_framework_events_and_named_workflow_steps():
         )
         return {"result": result.output}
 
-    result = await framework.workflows.run("research_brief", {"query": "SQLite"})
+    result = await factory.workflows.run("research_brief", {"query": "SQLite"})
 
     assert result.output == {"result": "step output"}
     assert "workflow_step_started" in events
@@ -510,24 +510,24 @@ async def test_framework_events_and_named_workflow_steps():
 def test_prompt_registry_and_decorator():
     from thund3rbot import prompt
 
-    framework = framework_with_fake("unused")
+    factory = factory_with_fake("unused")
 
-    @framework.prompts.register
+    @factory.prompts.register
     @prompt(name="brief")
     def brief_prompt(topic: str) -> str:
         return f"Brief: {topic}"
 
-    assert framework.prompts.render("brief", topic="SQLite") == "Brief: SQLite"
+    assert factory.prompts.render("brief", topic="SQLite") == "Brief: SQLite"
 
 
 def test_namespaced_tool_resolution_uses_public_tool_name():
-    framework = framework_with_fake("unused")
+    factory = factory_with_fake("unused")
 
     def get_contact(email: str) -> str:
         return email
 
     lc_tool = StructuredTool.from_function(get_contact, name="get_contact", description="Get contact")
-    framework.tools.add(
+    factory.tools.add(
         lc_tool,
         name="crm.get_contact",
         public_name="get_contact",
@@ -535,15 +535,15 @@ def test_namespaced_tool_resolution_uses_public_tool_name():
         description="Fetch a CRM contact by email.",
     )
 
-    resolved = framework.tools.get(["crm.*"])
+    resolved = factory.tools.get(["crm.*"])
 
-    assert framework.tools.get_spec("crm.get_contact").description == "Fetch a CRM contact by email."
+    assert factory.tools.get_spec("crm.get_contact").description == "Fetch a CRM contact by email."
     assert resolved[0].name == "get_contact"
 
 
 @pytest.mark.asyncio
 async def test_multimodal_content_and_artifact_tool_flow():
-    from thund3rbot import AgentFramework, AgentScope, AgentSpec, Artifact, ContentPart, FrameworkConfig, ModelConfig
+    from thund3rbot import AgentFactory, AgentScope, AgentSpec, Artifact, ContentPart, FactoryConfig, ModelConfig
 
     captured_messages = []
 
@@ -563,14 +563,14 @@ async def test_multimodal_content_and_artifact_tool_flow():
 
     artifacts = []
 
-    framework = AgentFramework(
-        FrameworkConfig(
+    factory = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="ollama", model="fake"),
             model_factory=lambda _: CaptureModel(),
         )
     )
 
-    @framework.tools.register(scopes=[AgentScope.TASK])
+    @factory.tools.register(scopes=[AgentScope.TASK])
     def extract_page(url: str):
         """Extract a page."""
 
@@ -578,7 +578,7 @@ async def test_multimodal_content_and_artifact_tool_flow():
         artifacts.append(artifact)
         return artifact
 
-    result = await framework.run_agent(
+    result = await factory.run_agent(
         AgentSpec(name="extractor", scope=AgentScope.TASK, tools=["extract_page"]),
         [
             ContentPart(type="text", text="Extract this page."),
@@ -598,9 +598,9 @@ def test_fastapi_adapter_can_mount_router_when_extra_is_installed():
 
     from thund3rbot.integrations.fastapi import create_agent_router
 
-    framework = framework_with_fake("ok")
+    factory = factory_with_fake("ok")
     app = fastapi.FastAPI()
-    app.include_router(create_agent_router(framework), prefix="/api/v1")
+    app.include_router(create_agent_router(factory), prefix="/api/v1")
 
     routes = {route.path for route in app.routes}
     assert "/api/v1/agents/run" in routes

@@ -14,9 +14,9 @@ with warnings.catch_warnings():
         AgentStarted,
         Artifact,
         ContentPart,
-        FrameworkConfig,
-        FrameworkConfigError,
-        FrameworkEvent,
+        FactoryConfig,
+        FactoryConfigError,
+        FactoryEvent,
         ModelConfig,
         ModelProvider,
         PromptSpec,
@@ -39,7 +39,7 @@ with warnings.catch_warnings():
     )
 
 __all__ = [
-    "AgentFramework",
+    "AgentFactory",
     "AgentInput",
     "AgentScope",
     "AgentSpec",
@@ -48,9 +48,9 @@ __all__ = [
     "AgentStarted",
     "Artifact",
     "ContentPart",
-    "FrameworkConfig",
-    "FrameworkConfigError",
-    "FrameworkEvent",
+    "FactoryConfig",
+    "FactoryConfigError",
+    "FactoryEvent",
     "ModelConfig",
     "ModelProvider",
     "PromptSpec",
@@ -78,10 +78,10 @@ __all__ = [
 def __getattr__(name: str):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
-        if name == "AgentFramework":
-            from thund3rbot.framework import AgentFramework
+        if name == "AgentFactory":
+            from thund3rbot.factory import AgentFactory
 
-            return AgentFramework
+            return AgentFactory
         if name == "tool":
             from thund3rbot.tooling import tool
 

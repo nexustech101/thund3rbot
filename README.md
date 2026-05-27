@@ -18,7 +18,7 @@ one provider. Thund3rBot takes a smaller stance:
   call `run`.
 - **Scoped agents**: choose between task agents, sub-agents, and orchestrators.
 - **Runtime-local registries**: tools, skills, prompts, workflows, runs, and
-  memory are owned by an `AgentFramework` instance.
+  memory are owned by an `AgentFactory` instance.
 - **Provider-flexible**: use local/open-source models through LangChain-compatible
   chat models, or configure hosted providers through optional extras.
 - **Production-shaped controls**: unique run IDs, session memory, context
@@ -82,12 +82,12 @@ Python 3.11+ is required.
 ```python
 import asyncio
 
-from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 
 
 async def main() -> None:
-    framework = AgentFramework(
-        FrameworkConfig(
+    framework = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="ollama", model="llama3.2")
         )
     )
@@ -111,15 +111,15 @@ All public imports come from `thund3rbot`.
 
 ## Core Concepts
 
-### Framework Runtime
+### Factory Runtime
 
-`AgentFramework` is the runtime boundary. It owns local registries for tools,
+`AgentFactory` is the runtime boundary. It owns local registries for tools,
 skills, prompts, workflows, events, memory, and run results.
 
 ```python
-from thund3rbot import AgentFramework, FrameworkConfig
+from thund3rbot import AgentFactory, FactoryConfig
 
-framework = AgentFramework(FrameworkConfig())
+framework = AgentFactory(FactoryConfig())
 ```
 
 ### Agent Identity
@@ -341,10 +341,10 @@ pip install "thund3rbot[fastapi]"
 
 ```python
 from fastapi import FastAPI
-from thund3rbot import AgentFramework, FrameworkConfig
+from thund3rbot import AgentFactory, FactoryConfig
 from thund3rbot.integrations.fastapi import create_agent_router
 
-framework = AgentFramework(FrameworkConfig())
+framework = AgentFactory(FactoryConfig())
 app = FastAPI()
 app.include_router(create_agent_router(framework), prefix="/api/v1")
 ```
@@ -395,10 +395,10 @@ await framework.prompts.load_mcp(
 For provider-backed models, install the provider extras and configure a model:
 
 ```python
-from thund3rbot import AgentFramework, FrameworkConfig, ModelConfig, ProviderConfig
+from thund3rbot import AgentFactory, FactoryConfig, ModelConfig, ProviderConfig
 
-framework = AgentFramework(
-    FrameworkConfig(
+framework = AgentFactory(
+    FactoryConfig(
         default_model=ModelConfig(provider="openai", model="gpt-4o-mini"),
         providers={
             "openai": ProviderConfig(name="openai", api_key_env="OPENAI_API_KEY")
@@ -410,8 +410,8 @@ framework = AgentFramework(
 For tests, local wrappers, or custom providers, pass a model factory:
 
 ```python
-framework = AgentFramework(
-    FrameworkConfig(
+framework = AgentFactory(
+    FactoryConfig(
         default_model=ModelConfig(provider="custom", model="fake"),
         model_factory=lambda model_config: my_chat_model,
     )
@@ -428,12 +428,12 @@ Common imports:
 
 ```python
 from thund3rbot import (
-    AgentFramework,
+    AgentFactory,
     AgentScope,
     AgentSpec,
     Artifact,
     ContentPart,
-    FrameworkConfig,
+    FactoryConfig,
     ModelConfig,
     ProviderConfig,
     RunOptions,
@@ -465,7 +465,7 @@ FastAPI-dependent tests are skipped unless the `fastapi` extra is installed.
 
 ```text
 thund3rbot/
-  framework.py             AgentFramework runtime
+  factory.py               AgentFactory runtime
   agents.py                scoped task/sub/orchestrator agents
   tooling.py               tool registry and @tool decorator
   skills.py                Python and Markdown skill registry

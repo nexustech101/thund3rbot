@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from langchain_core.messages import AIMessage
 from pydantic import BaseModel
 
-from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 
 
 class SentimentResult(BaseModel):
@@ -31,8 +31,8 @@ class ScriptedModel:
 
 
 async def main() -> None:
-    framework = AgentFramework(
-        FrameworkConfig(
+    framework = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="custom", model="scripted"),
             model_factory=lambda _: ScriptedModel(),
         )

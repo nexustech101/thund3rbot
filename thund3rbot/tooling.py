@@ -1,4 +1,4 @@
-"""Generic framework tool registry and public ``@tool`` decorator."""
+"""Generic factory tool registry and public ``@tool`` decorator."""
 from __future__ import annotations
 
 import inspect
@@ -58,8 +58,8 @@ def _normalise_scopes(scopes: Iterable[AgentScope | str] | None) -> set[AgentSco
 class ToolRegistry:
     """Runtime-local registry for LangChain tools and plain Python callables."""
 
-    def __init__(self, framework: Any | None = None) -> None:
-        self._framework = framework
+    def __init__(self, factory: Any | None = None) -> None:
+        self._factory = factory
         self._tools: dict[str, ToolSpec] = {}
 
     def register(
@@ -187,12 +187,12 @@ class ToolRegistry:
     ) -> list[BaseTool]:
         """Load MCP tools under a namespace without importing MCP until called."""
 
-        if self._framework is None:
-            raise RuntimeError("MCP loading requires a ToolRegistry attached to an AgentFramework.")
+        if self._factory is None:
+            raise RuntimeError("MCP loading requires a ToolRegistry attached to an Agentfactory.")
         from thund3rbot.integrations.fastmcp import load_mcp_tools
 
         return await load_mcp_tools(
-            self._framework,
+            self._factory,
             url,
             namespace=namespace,
             names=names,

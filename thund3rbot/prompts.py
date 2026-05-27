@@ -95,7 +95,7 @@ class PromptRegistry:
         """Load MCP prompts under a namespace without importing MCP until called."""
 
         if self._framework is None:
-            raise RuntimeError("MCP loading requires a PromptRegistry attached to an AgentFramework.")
+            raise RuntimeError("MCP loading requires a PromptRegistry attached to an AgentFactory.")
         from thund3rbot.integrations.fastmcp import load_mcp_prompts
 
         return await load_mcp_prompts(self._framework, url, namespace=namespace, names=names)

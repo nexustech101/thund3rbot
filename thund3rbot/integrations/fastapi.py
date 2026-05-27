@@ -1,11 +1,11 @@
-"""FastAPI adapter for an AgentFramework runtime."""
+"""FastAPI adapter for an AgentFactory runtime."""
 from __future__ import annotations
 
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from thund3rbot import AgentFramework, AgentScope, AgentSpec, ModelConfig
+from thund3rbot import AgentFactory, AgentScope, AgentSpec, ModelConfig
 
 
 class RunAgentRequest(BaseModel):
@@ -21,8 +21,8 @@ class RunAgentRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-def create_agent_router(framework: AgentFramework, *, prefix: str = "/agents"):
-    """Create a FastAPI router that exposes the supplied framework instance."""
+def create_agent_router(factory: AgentFactory, *, prefix: str = "/agents"):
+    """Create a FastAPI router that exposes the supplied factory instance."""
 
     from fastapi import APIRouter, HTTPException
 
@@ -40,18 +40,18 @@ def create_agent_router(framework: AgentFramework, *, prefix: str = "/agents"):
             max_iterations=request.max_iterations,
             metadata=request.metadata,
         )
-        result = await framework.run_agent(spec, request.input, request.context)
+        result = await factory.run_agent(spec, request.input, request.context)
         return result.model_dump(mode="json")
 
     @router.get("/{run_id}")
     async def get_run(run_id: str) -> dict[str, Any]:
-        result = framework.runs.get(run_id)
+        result = factory.runs.get(run_id)
         if result is None:
             raise HTTPException(status_code=404, detail=f"Run {run_id!r} was not found.")
         return result.model_dump(mode="json")
 
     @router.get("/")
     async def list_runs() -> list[dict[str, Any]]:
-        return [result.model_dump(mode="json") for result in framework.runs.values()]
+        return [result.model_dump(mode="json") for result in factory.runs.values()]
 
     return router

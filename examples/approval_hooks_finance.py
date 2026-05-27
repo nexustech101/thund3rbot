@@ -9,10 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from langchain_core.messages import AIMessage
 
 from thund3rbot import (
-    AgentFramework,
+    AgentFactory,
     AgentScope,
     AgentSpec,
-    FrameworkConfig,
+    FactoryConfig,
     ModelConfig,
     RunOptions,
     ToolApproval,
@@ -53,8 +53,8 @@ def require_manual_review(context):
 
 
 async def main() -> None:
-    framework = AgentFramework(
-        FrameworkConfig(
+    framework = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="custom", model="scripted"),
             model_factory=lambda _: ScriptedModel(),
         )

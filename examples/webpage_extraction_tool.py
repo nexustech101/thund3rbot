@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from langchain_core.messages import AIMessage
 
-from thund3rbot import AgentFramework, AgentScope, AgentSpec, Artifact, FrameworkConfig, ModelConfig, tool
+from thund3rbot import AgentFactory, AgentScope, AgentSpec, Artifact, FactoryConfig, ModelConfig, tool
 
 
 class TextExtractor(HTMLParser):
@@ -65,8 +65,8 @@ def page_to_markdown(url: str) -> Artifact:
 
 
 async def main() -> None:
-    framework = AgentFramework(
-        FrameworkConfig(
+    framework = AgentFactory(
+        FactoryConfig(
             default_model=ModelConfig(provider="custom", model="scripted"),
             model_factory=lambda _: ScriptedModel(),
         )

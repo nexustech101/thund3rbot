@@ -10,8 +10,8 @@ from thund3rbot.types import AgentScope, Skill, SkillConfigError, ToolNotFoundEr
 class SkillRegistry:
     """Runtime-local skill registry."""
 
-    def __init__(self, framework: Any | None = None) -> None:
-        self._framework = framework
+    def __init__(self, factory: Any | None = None) -> None:
+        self._factory = factory
         self._skills: dict[str, Skill] = {}
 
     def register(self, skill: Skill | str, **kwargs: Any) -> Skill:
@@ -73,10 +73,10 @@ class SkillRegistry:
         return loaded
 
     def _validate_markdown_tools(self, skill: Skill) -> None:
-        if self._framework is None:
+        if self._factory is None:
             return
         for ref in skill.tools:
-            if isinstance(ref, str) and not ref.endswith(".*") and ref not in self._framework.tools:
+            if isinstance(ref, str) and not ref.endswith(".*") and ref not in self._factory.tools:
                 raise ToolNotFoundError(f"Skill {skill.name!r} references unknown tool {ref!r}.")
 
     def _validate_no_cycles(self) -> None:

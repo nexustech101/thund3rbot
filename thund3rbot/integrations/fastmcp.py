@@ -4,14 +4,14 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from thund3rbot import AgentFramework, AgentScope
+from thund3rbot import AgentFactory, AgentScope
 
 
-def register_fastmcp_tools(framework: AgentFramework, mcp: Any, names: Iterable[str] | None = None) -> None:
-    """Expose framework tools on a supplied FastMCP server instance."""
+def register_fastmcp_tools(factory: AgentFactory, mcp: Any, names: Iterable[str] | None = None) -> None:
+    """Expose Factory tools on a supplied FastMCP server instance."""
 
     selected = set(names) if names is not None else None
-    for spec in framework.tools.list():
+    for spec in factory.tools.list():
         if selected is not None and spec.name not in selected:
             continue
         source = spec.source
@@ -23,7 +23,7 @@ def register_fastmcp_tools(framework: AgentFramework, mcp: Any, names: Iterable[
 
 
 async def load_mcp_tools(
-    framework: AgentFramework,
+    factory: AgentFactory,
     url: str,
     *,
     namespace: str | None = None,
@@ -31,7 +31,7 @@ async def load_mcp_tools(
     scopes: Iterable[AgentScope | str] | None = None,
     overrides: dict[str, str] | None = None,
 ) -> list[Any]:
-    """Load tools from an MCP HTTP server into the framework registry."""
+    """Load tools from an MCP HTTP server into the factory registry."""
 
     from langchain_mcp_adapters.tools import load_mcp_tools as load_langchain_mcp_tools
     from mcp import ClientSession
@@ -47,7 +47,7 @@ async def load_mcp_tools(
         tools = [tool for tool in tools if tool.name in selected]
     for mcp_tool in tools:
         registered_name = f"{namespace}.{mcp_tool.name}" if namespace else mcp_tool.name
-        framework.tools.add(
+        factory.tools.add(
             mcp_tool,
             name=registered_name,
             public_name=mcp_tool.name,
@@ -59,13 +59,13 @@ async def load_mcp_tools(
 
 
 async def load_mcp_prompts(
-    framework: AgentFramework,
+    factory: AgentFactory,
     url: str,
     *,
     namespace: str,
     names: Iterable[str] | None = None,
 ) -> list[Any]:
-    """Load MCP prompt metadata into the framework prompt registry."""
+    """Load MCP prompt metadata into the factory prompt registry."""
 
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
@@ -84,13 +84,13 @@ async def load_mcp_prompts(
             continue
         description = getattr(item, "description", None) or (item.get("description") if isinstance(item, dict) else "")
         full_name = f"{namespace}.{name}"
-        framework.prompts.register(
+        factory.prompts.register(
             f"MCP prompt {full_name}. Fetch prompt content from the MCP server before use.",
             name=name,
             description=description or "",
             namespace=namespace,
         )
-        loaded.append(framework.prompts.get(full_name))
+        loaded.append(factory.prompts.get(full_name))
     return [item for item in loaded if item is not None]
 
 

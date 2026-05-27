@@ -11,8 +11,8 @@ from thund3rbot.types import AgentStatus, RunResult, WorkflowHandler, WorkflowSp
 class WorkflowRegistry:
     """Runtime-local workflow registry."""
 
-    def __init__(self, framework: Any) -> None:
-        self._framework = framework
+    def __init__(self, factory: Any) -> None:
+        self._factory = factory
         self._workflows: dict[str, WorkflowSpec] = {}
 
     def register(
@@ -45,8 +45,8 @@ class WorkflowRegistry:
             raise KeyError(f"Workflow {name!r} is not registered. Available: {available}")
 
         result = RunResult(name=name, status=AgentStatus.RUNNING, metadata={"kind": "workflow"})
-        previous_workflow = self._framework._active_workflow
-        self._framework._active_workflow = name
+        previous_workflow = self._factory._active_workflow
+        self._factory._active_workflow = name
         try:
             output = await self._invoke(workflow.handler, context or {})
             result.output = output
@@ -55,14 +55,14 @@ class WorkflowRegistry:
             result.error = str(exc)
             result.status = AgentStatus.FAILED
         finally:
-            self._framework._active_workflow = previous_workflow
+            self._factory._active_workflow = previous_workflow
             result.completed_at = datetime.now(UTC)
-            self._framework.runs[result.run_id] = result
+            self._factory.runs[result.run_id] = result
         return result
 
     async def _invoke(self, handler: WorkflowHandler, context: dict[str, Any]) -> Any:
         params = inspect.signature(handler).parameters
-        output = handler(context, self._framework) if len(params) >= 2 else handler(context)  # type: ignore[misc]
+        output = handler(context, self._factory) if len(params) >= 2 else handler(context)  # type: ignore[misc]
         if inspect.isawaitable(output):
             return await output
         return output

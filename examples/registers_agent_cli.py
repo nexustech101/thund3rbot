@@ -25,7 +25,7 @@ from registers import database_registry, db_field, dispose_all
 from rich.console import Console
 from rich.table import Table
 
-from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 
 
 # 2. Configure local database and extraction schemas
@@ -56,7 +56,6 @@ class ProductExtraction(BaseModel):
 @database_registry(DB_URL, table_name="products", key_field="id")
 class ProductRecord(BaseModel):
     """Database model used to persist extracted product data."""
-
     id: int | None = db_field(default=None, id_strategy="autoincrement")
     created_at: str = db_field(index=True)
     source_url: str = db_field(index=True)
@@ -68,6 +67,41 @@ class ProductRecord(BaseModel):
     brand: str = ""
     description: str = ""
     image_urls_json: str = "[]"
+
+
+# Helper function to build data table object
+def build_products_table(products: list[ExtractedProduct]) -> Table:
+    """Print a rich table of extracted products."""
+    table = Table(title="Extracted Products")
+    table.add_column("#", justify="right")
+    table.add_column("Title")
+    table.add_column("Price")
+    table.add_column("Currency")
+    table.add_column("Brand")
+    table.add_column("Created At")
+    for product in products:
+        table.add_row(
+            str(product.id),
+            product.title,
+            product.price,
+            product.currency,
+            product.brand or "NULL",
+            product.created_at,
+        )
+    return table
+
+
+# Helper function to print data table 
+def print_products_table(products: list[ExtractedProduct]) -> None:
+    """Print a rich table of extracted products."""
+    table = build_products_table(products)
+    console.print(table)
+
+
+# Helper function to print data table as json
+def print_products_json(products: list[ExtractedProduct]) -> None:
+    """Print extracted products as JSON."""
+    console.print_json(json.dumps([product.model_dump(mode="json") for product in products], indent=2))
 
 
 # 3. Define a function to fetch raw HTML from any URL
@@ -106,14 +140,14 @@ def create_extraction_agent(
         model (str): The specific model to use from the provider.
 
     Returns:
-        An AgentFramework agent configured to return ProductExtraction.
+        An AgentFactory agent configured to return ProductExtraction.
     """
     with console.status(
         f"[bold blue]Configuring agent[/] provider={provider} model={model}",
         spinner="dots",
     ):
-        framework = AgentFramework(
-            FrameworkConfig(
+        framework = AgentFactory(
+            FactoryConfig(
                 default_model=ModelConfig(
                     provider=provider,
                     model=model,
@@ -196,6 +230,7 @@ def save_products(url: str, products: list[ExtractedProduct]) -> list[ProductRec
 @cli.argument("provider", type=str, default="ollama", help="Model provider")
 @cli.argument("model", type=str, default="qwen3.5:9b", help="Model name")
 @cli.alias("--extract")
+@cli.alias("-e")
 async def extract(url: str, provider: str = "ollama", model: str = "qwen3.5:9b") -> None:
     """
     Fetch HTML, run the extraction agent, and save product records.
@@ -225,24 +260,19 @@ async def extract(url: str, provider: str = "ollama", model: str = "qwen3.5:9b")
     console.print(f"[green]Extracted[/] {len(extraction.products)} product(s)")
     saved = save_products(url, extraction.products)
 
-    table = Table(title="Saved Products")
-    table.add_column("ID", justify="right")
-    table.add_column("Title")
-    table.add_column("Price")
-    table.add_column("Currency")
-    table.add_column("Availability")
-    table.add_column("Brand")
-    for record in saved:
-        table.add_row(
-            str(record.id),
-            record.title,
-            record.price,
-            record.currency,
-            record.availability,
-            record.brand,
-        )
-    console.print(table)
-    console.print_json(json.dumps([record.model_dump(mode="json") for record in saved]))
+    print_products_table(saved)
+    print_products_json(saved)
+
+
+@cli.register("list", description="List all extracted products in the database")
+@cli.alias("--list")
+@cli.alias("-l")
+def list_products() -> None:
+    """Helper function to list all saved products in the database as json."""
+    # console.rule("[bold]All Extracted Products")
+    records = ProductRecord.objects.all()
+    # print_products_table(records)
+    print_products_json(records)
 
 
 # 7. Run the CLI when the script is executed

@@ -1,7 +1,7 @@
 """
 ResponseParser — unified LLM response parser for all agent scopes.
 
-Normalises output from any provider into a structured ParseResult, working
+Normalizes output from any provider into a structured ParseResult, working
 around local-model inconsistency (text tool calls vs API function-calling).
 
 Priority chain

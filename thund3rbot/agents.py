@@ -1,4 +1,4 @@
-"""Scoped agent implementations hidden behind the framework runtime."""
+"""Scoped agent implementations hidden behind the factory runtime."""
 from __future__ import annotations
 
 import asyncio
@@ -66,17 +66,17 @@ _SCOPE_MASTER_PROMPTS: dict[AgentScope, str] = {
 
 
 class BaseScopedAgent:
-    """Base class for framework-owned scoped agents."""
+    """Base class for factory-owned scoped agents."""
 
     default_instructions = "You are a helpful agent."
 
-    def __init__(self, framework: Any, spec: AgentSpec) -> None:
-        self.framework = framework
+    def __init__(self, factory: Any, spec: AgentSpec) -> None:
+        self.factory = factory
         self.spec = spec
         self.name = spec.name
         self.scope = spec.scope
         self.agent_id = spec.agent_id
-        self.memory: BaseMemoryStore = framework.memory
+        self.memory: BaseMemoryStore = factory.memory
 
     async def run(
         self,
@@ -95,9 +95,9 @@ class BaseScopedAgent:
             status=AgentStatus.RUNNING,
             metadata={**self.spec.metadata},
         )
-        self.framework.runs[result.run_id] = result
+        self.factory.runs[result.run_id] = result
         started = time.perf_counter()
-        await self.framework.emit(AgentStarted(run_id=result.run_id, agent_name=self.name, scope=self.scope, input=input_text))
+        await self.factory.emit(AgentStarted(run_id=result.run_id, agent_name=self.name, scope=self.scope, input=input_text))
 
         try:
             run_coro = self._run_details(input_text, context or {}, options, result)
@@ -117,7 +117,7 @@ class BaseScopedAgent:
         finally:
             result.completed_at = datetime.now(UTC)
             duration_ms = (time.perf_counter() - started) * 1000
-            await self.framework.emit(
+            await self.factory.emit(
                 AgentFinished(
                     run_id=result.run_id,
                     agent_name=self.name,
@@ -140,18 +140,18 @@ class BaseScopedAgent:
 
     @property
     def model_config(self) -> ModelConfig:
-        return self.spec.model or self.framework.config.default_model
+        return self.spec.model or self.factory.config.default_model
 
     @property
     def max_iterations(self) -> int:
-        return self.spec.max_iterations or self.framework.config.max_iterations
+        return self.spec.max_iterations or self.factory.config.max_iterations
 
     def _instructions(self, tools: list[BaseTool]) -> str:
         parts = [
-            self.framework.scope_prompts.get(self.scope, _SCOPE_MASTER_PROMPTS[self.scope]),
+            self.factory.scope_prompts.get(self.scope, _SCOPE_MASTER_PROMPTS[self.scope]),
             self.spec.instructions or self.default_instructions,
         ]
-        for skill in self.framework.skills.resolve(self.spec.skills, scope=self.scope):
+        for skill in self.factory.skills.resolve(self.spec.skills, scope=self.scope):
             if skill.instructions:
                 parts.append(skill.instructions)
         instructions = "\n\n".join(part.strip() for part in parts if part.strip())
@@ -168,11 +168,11 @@ class BaseScopedAgent:
 
     def _tool_specs(self) -> list[ToolSpec]:
         refs = list(self.spec.tools)
-        for skill in self.framework.skills.resolve(self.spec.skills, scope=self.scope):
+        for skill in self.factory.skills.resolve(self.spec.skills, scope=self.scope):
             refs.extend(skill.tools)
         if not refs:
             return []
-        return self.framework.tools.resolve(refs, scope=self.scope)
+        return self.factory.tools.resolve(refs, scope=self.scope)
 
     def _transient_tool_spec(self, tool: BaseTool) -> ToolSpec:
         return ToolSpec(
@@ -235,7 +235,7 @@ class BaseScopedAgent:
                 if approval.arguments is not None:
                     args = approval.arguments
                     hook_context.arguments = args
-                await self.framework.emit(ToolCalled(run_id=run_id, agent_name=self.name, tool=name, input=args))
+                await self.factory.emit(ToolCalled(run_id=run_id, agent_name=self.name, tool=name, input=args))
                 try:
                     output = await selected_spec.tool.ainvoke(args)
                     await _call_tool_output_hook(options, hook_context, output)
@@ -244,7 +244,7 @@ class BaseScopedAgent:
                     await _call_tool_error_hook(options, hook_context, exc)
                     output = f"Tool error: {exc}"
         duration_ms = (time.perf_counter() - started) * 1000
-        await self.framework.emit(ToolResult(run_id=run_id, agent_name=self.name, tool=name, output=output, duration_ms=duration_ms))
+        await self.factory.emit(ToolResult(run_id=run_id, agent_name=self.name, tool=name, output=output, duration_ms=duration_ms))
         await _call_step_callback(
             options,
             StepEvent(index=step_index, tool=name, input=args, output=output, summary=_summarize(output)),
@@ -261,7 +261,7 @@ class BaseScopedAgent:
         result: RunResult,
     ) -> dict[str, Any]:
         tools = [spec.tool for spec in tool_specs]
-        model = self.framework.create_model(self.model_config)
+        model = self.factory.create_model(self.model_config)
         executable_model = model.bind_tools(tools) if tools and hasattr(model, "bind_tools") else model
         parser = ResponseParser({candidate.name for candidate in tools} if tools else None)
         history = await self.memory.get_history(result.session_id)
@@ -396,7 +396,7 @@ class SubAgent(TaskAgent):
             skills=skills if skills is not None else list(self.spec.skills),
             max_iterations=self.spec.max_iterations,
         )
-        return await self.framework.run_agent(spec, task, options=options)
+        return await self.factory.run_agent(spec, task, options=options)
 
 
 class OrchestratorAgent(SubAgent):
@@ -470,7 +470,7 @@ class OrchestratorAgent(SubAgent):
             skills=skills if skills is not None else list(self.spec.skills),
             max_iterations=self.spec.max_iterations,
         )
-        return await self.framework.run_agent(spec, task, options=options)
+        return await self.factory.run_agent(spec, task, options=options)
 
 
 async def _call_step_callback(options: RunOptions, event: StepEvent) -> None:

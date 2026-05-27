@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from thund3rbot import AgentFramework, AgentScope, AgentSpec, FrameworkConfig, ModelConfig
+from thund3rbot import AgentFactory, AgentScope, AgentSpec, FactoryConfig, ModelConfig
 from thund3rbot.integrations.fastapi import create_agent_router
 
 try:
@@ -14,8 +14,8 @@ except ImportError as exc:
     raise SystemExit('Install FastAPI support with: pip install "thund3rbot[fastapi]"') from exc
 
 
-framework = AgentFramework(
-    FrameworkConfig(
+framework = AgentFactory(
+    FactoryConfig(
         default_model=ModelConfig(provider="ollama", model="llama3.2"),
     )
 )
